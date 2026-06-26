@@ -1,0 +1,105 @@
+# QA — opt-in, Gemini-driven exploratory QA of a pull request's preview.
+#
+# Opt-in: comment "/qa" on a pull request to trigger it. A Gemini 3.5 Flash
+# computer-use agent drives a real browser against the PR's Vercel preview and
+# explores it like a user (no dev tools, no direct URL entry), then posts what
+# it found graded by criticality.
+#
+#   /qa            → scoped: focus on the areas this PR changed (cheap default)
+#   /qa all        → full-app sweep (use before a release / high-blast-radius PR)
+#   /qa <url>      → test an explicit URL instead of the resolved preview
+#
+# Each run records a session video (published to a private Vercel Blob store and
+# linked in the report), reports token/cost metrics, and distils what it learned
+# into .github/sentinel/QA-MEMORY.md (committed to main) so the next run starts
+# smarter. With QA_LOGIN_* + QA_SUPABASE_* set it explores behind the login wall.
+#
+# Setup:
+#   - GEMINI_API_KEY            (required) — the computer-use agent
+#   - OPENROUTER_API_KEY        (required for memory) — cheap model that distils QA-MEMORY
+#   - BLOB_READ_WRITE_TOKEN     (optional) — private Vercel Blob store for the session video
+#   - BLOB_STORE_ID             (optional) — paired with the token above
+#   - QA_LOGIN_PHONE / QA_LOGIN_OTP (optional) — a Supabase test phone number and its
+#                               fixed OTP code (no SMS sent) for authenticated exploration
+#   - QA_SUPABASE_URL / QA_SUPABASE_ANON_KEY (optional) — same project as the app's
+#                               VITE_SUPABASE_URL; used to mint the test number's session
+
+name: QA
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  # write: the run commits the distilled QA memory to .github/sentinel/QA-MEMORY.md
+  # on main (via the contents API, with [skip ci] so it doesn't retrigger CI).
+  contents: write
+  pull-requests: write
+  # Required to react to the triggering /qa comment (an issue comment): the
+  # reactions endpoint is /repos/{o}/{r}/issues/comments/{id}/reactions.
+  issues: write
+  # Resolve the PR's preview URL: deployments → the Vercel deployment's
+  # environment_url, statuses → the vercel.app commit-status fallback. A
+  # `permissions:` block is exhaustive, so without these the lookups 403.
+  deployments: read
+  statuses: read
+
+jobs:
+  qa:
+    # Match the `/qa` command on a word boundary — exact, or followed by a space
+    # (so `/qa`, `/qa all`, `/qa <url>` fire, but `/qap`, `/qa-foo` etc. don't,
+    # which would otherwise burn Gemini tokens on unrelated comments).
+    # Gate on author association too: `/qa` (esp. `/qa all`) drives an expensive
+    # browser+Gemini sweep, so only a repo owner/member/collaborator may trigger
+    # it — a drive-by commenter on an open PR can't burn the budget. (This is
+    # stricter than /review and /debate on purpose, given the cost asymmetry.)
+    if: >-
+      ${{ github.event.issue.pull_request
+        && (github.event.comment.body == '/qa' || startsWith(github.event.comment.body, '/qa '))
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) }}
+    # Job-level (not workflow-level) concurrency, for the same reason as the
+    # review/debate jobs: workflow-level groups resolve before the job `if`, so a
+    # non-"/qa" comment would join and cancel a run mid-explore. Keyed by COMMENT
+    # id with cancel-in-progress off so two /qa runs on one PR don't cancel each
+    # other; the per-comment group still collapses duplicate deliveries.
+    concurrency:
+      group: qa-pr-${{ github.event.issue.number }}-${{ github.event.comment.id }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      # The QA code runs from the BASE branch (trusted) — it executes with the
+      # GEMINI_API_KEY secret, so it must not be PR-authored code. It only drives
+      # a browser against the already-deployed preview; it never runs PR code.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install QA dependencies
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        working-directory: .github/sentinel
+        run: npx playwright install --with-deps chromium
+
+      - name: QA pull request
+        working-directory: .github/sentinel
+        run: npm run qa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Distils each run into the QA memory (cheap model via OpenRouter).
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Session-video upload → private Vercel Blob store (RW token auth).
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          BLOB_STORE_ID: ${{ secrets.BLOB_STORE_ID }}
+          # Optional: explore behind the login wall. atlas auth is phone SMS-OTP /
+          # Apple / Google; we mint a session for a Supabase TEST phone number
+          # (fixed OTP code, no SMS sent) via GoTrue verify and seed it into the
+          # browser. If unset, QA stays on the logged-out surface.
+          QA_LOGIN_PHONE: ${{ secrets.QA_LOGIN_PHONE }}
+          QA_LOGIN_OTP: ${{ secrets.QA_LOGIN_OTP }}
+          QA_SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
+          QA_SUPABASE_ANON_KEY: ${{ secrets.QA_SUPABASE_ANON_KEY }}

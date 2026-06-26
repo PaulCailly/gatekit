@@ -1,0 +1,83 @@
+# Release — OpenRouter-powered changelog on every version tag.
+#
+# Push a `v*` tag (or run this manually with a tag input) and the job reads the
+# commits since the previous tag, asks an LLM — routed through OpenRouter, GLM
+# 5.2 first with fallbacks, like the other sentinel jobs — to write categorized
+# release notes, then creates/updates the GitHub Release and commits the same
+# section to CHANGELOG.md on the default branch.
+#
+# Setup: add an OPENROUTER_API_KEY repository secret.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to (re)generate the changelog for, e.g. v2.0.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the default branch (not the detached tag), with full history +
+      # tags, so the generator can diff against the previous tag AND commit the
+      # CHANGELOG.md update straight onto the branch. The tag being released
+      # stays reachable as a ref for the diff. The event ref (refs/tags/v*) still
+      # tells the script which tag to release.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Explicitly fetch tags: the script diffs against the pushed tag, and
+          # checkout's `auto` default isn't guaranteed to fetch it on a branch checkout.
+          fetch-tags: true
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install release dependencies
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate release notes
+        working-directory: .github/sentinel
+        run: npm run release-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Set only on manual dispatch; on a tag push the script reads the tag
+          # from the event ref instead.
+          RELEASE_TAG: ${{ github.event.inputs.tag }}
+
+      # Commit the CHANGELOG.md update back to the default branch (already checked
+      # out). Best-effort: the GitHub Release created above is the source of truth,
+      # so a rejected push (protected branch, race with another push) must not turn
+      # the whole job red after the release already succeeded.
+      - name: Commit changelog
+        continue-on-error: true
+        run: |
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changelog changes — skipping commit."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md
+          git commit -m "docs: changelog for ${RELEASE_TAG} [skip ci]"
+          git push origin HEAD
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}

@@ -1,0 +1,61 @@
+# Debate — OpenRouter-powered, opt-in, multi-model pull request debate.
+#
+# Opt-in: comment "/debate" on a pull request to trigger it. Several models argue
+# the change with each other (opening → rebuttals → vote), then a single summary
+# comment records the democratic verdict.
+#
+#   /debate                       → default panel (opus · gpt · gemini)
+#   /debate opus gpt              → just those two
+#   /debate all                   → every registered model
+#   /debate opus gpt <motion>     → debate a free-text motion instead of "merge?"
+#   /debate all --deep <motion>   → models may read files in every round
+#
+# Setup: add an OPENROUTER_API_KEY repository secret.
+
+name: Debate
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  # Required to react to the triggering /debate comment (an issue comment): the
+  # reactions endpoint is /repos/{o}/{r}/issues/comments/{id}/reactions.
+  issues: write
+
+jobs:
+  debate:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/debate') }}
+    # Job-level (not workflow-level) concurrency: GitHub resolves workflow-level
+    # concurrency BEFORE the job `if`, so any comment on the PR — even a
+    # non-"/debate" one — would join the group and cancel a debate that's mid-run.
+    # Scoping it to the job means only real "/debate" runs are grouped. The group
+    # is keyed by COMMENT id (not just PR) with cancel-in-progress off, so two
+    # "/debate" runs on the same PR run concurrently instead of the second
+    # cancelling the first; the per-comment group still collapses a single
+    # comment's duplicate deliveries.
+    concurrency:
+      group: debate-pr-${{ github.event.issue.number }}-${{ github.event.comment.id }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      # The debate code runs from the BASE branch (trusted) — it executes with the
+      # OPENROUTER_API_KEY secret, so it must not be PR-authored code.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install debate dependencies
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Debate pull request
+        working-directory: .github/sentinel
+        run: npm run debate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

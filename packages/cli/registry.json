@@ -1,7 +1,31 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "items": {
-    "_lib": { "description": "shared sentinel lib", "files": [] },
+    "_lib": {
+      "description": "shared sentinel lib",
+      "files": [
+        { "src": "_lib/src/lib/benchmark.ts",    "dest": "{sentinel}/src/lib/benchmark.ts",    "type": "managed" },
+        { "src": "_lib/src/lib/browser.ts",       "dest": "{sentinel}/src/lib/browser.ts",       "type": "managed" },
+        { "src": "_lib/src/lib/debate-core.ts",   "dest": "{sentinel}/src/lib/debate-core.ts",   "type": "managed" },
+        { "src": "_lib/src/lib/debate-format.ts", "dest": "{sentinel}/src/lib/debate-format.ts", "type": "managed" },
+        { "src": "_lib/src/lib/diff.ts",          "dest": "{sentinel}/src/lib/diff.ts",          "type": "managed" },
+        { "src": "_lib/src/lib/gemini.ts",        "dest": "{sentinel}/src/lib/gemini.ts",        "type": "managed" },
+        { "src": "_lib/src/lib/gh.ts",            "dest": "{sentinel}/src/lib/gh.ts",            "type": "managed" },
+        { "src": "_lib/src/lib/markdown.ts",      "dest": "{sentinel}/src/lib/markdown.ts",      "type": "managed" },
+        { "src": "_lib/src/lib/metrics.ts",       "dest": "{sentinel}/src/lib/metrics.ts",       "type": "managed" },
+        { "src": "_lib/src/lib/openrouter.ts",    "dest": "{sentinel}/src/lib/openrouter.ts",    "type": "managed" },
+        { "src": "_lib/src/lib/qa-auth.ts",       "dest": "{sentinel}/src/lib/qa-auth.ts",       "type": "managed" },
+        { "src": "_lib/src/lib/qa-core.ts",       "dest": "{sentinel}/src/lib/qa-core.ts",       "type": "managed" },
+        { "src": "_lib/src/lib/qa-memory.ts",     "dest": "{sentinel}/src/lib/qa-memory.ts",     "type": "managed" },
+        { "src": "_lib/src/lib/reactions.ts",     "dest": "{sentinel}/src/lib/reactions.ts",     "type": "managed" },
+        { "src": "_lib/src/lib/recorder.ts",      "dest": "{sentinel}/src/lib/recorder.ts",      "type": "managed" },
+        { "src": "_lib/src/lib/release-core.ts",  "dest": "{sentinel}/src/lib/release-core.ts",  "type": "managed" },
+        { "src": "_lib/src/lib/repo.ts",          "dest": "{sentinel}/src/lib/repo.ts",          "type": "managed" },
+        { "src": "_lib/src/lib/types.ts",         "dest": "{sentinel}/src/lib/types.ts",         "type": "managed" },
+        { "src": "_lib/package.json",             "dest": "{sentinel}/package.json",             "type": "managed" },
+        { "src": "_lib/tsconfig.json",            "dest": "{sentinel}/tsconfig.json",            "type": "managed" }
+      ]
+    },
     "quality": {
       "description": "Code-health gate + sticky Code Quality PR report",
       "dependsOn": ["_lib"],
@@ -30,6 +54,50 @@
       "workflows": [
         { "src": "compliance/compliance-gate.yml", "dest": ".github/workflows/compliance-gate.yml", "type": "managed", "mode": "gate" },
         { "src": "compliance/compliance.yml",      "dest": ".github/workflows/compliance.yml",      "type": "managed" }
+      ]
+    },
+    "review": {
+      "description": "/review multi-model PR review",
+      "dependsOn": ["_lib"],
+      "secrets": ["OPENROUTER_API_KEY"],
+      "files": [
+        { "src": "review/review.ts", "dest": "{sentinel}/src/review.ts", "type": "managed" }
+      ],
+      "workflows": [
+        { "src": "review/code-review.yml", "dest": ".github/workflows/code-review.yml", "type": "managed" }
+      ]
+    },
+    "debate": {
+      "description": "/debate two-model PR debate",
+      "dependsOn": ["_lib"],
+      "secrets": ["OPENROUTER_API_KEY"],
+      "files": [
+        { "src": "debate/debate.ts", "dest": "{sentinel}/src/debate.ts", "type": "managed" }
+      ],
+      "workflows": [
+        { "src": "debate/debate.yml", "dest": ".github/workflows/debate.yml", "type": "managed" }
+      ]
+    },
+    "qa": {
+      "description": "/qa exploratory computer-use QA",
+      "dependsOn": ["_lib"],
+      "secrets": ["GEMINI_API_KEY", "OPENROUTER_API_KEY", "BLOB_READ_WRITE_TOKEN", "BLOB_STORE_ID"],
+      "files": [
+        { "src": "qa/qa.ts",         "dest": "{sentinel}/src/qa.ts",      "type": "managed" },
+        { "src": "qa/QA-MEMORY.md",  "dest": "{sentinel}/QA-MEMORY.md",   "type": "owned" }
+      ],
+      "workflows": [
+        { "src": "qa/qa.yml", "dest": ".github/workflows/qa.yml", "type": "managed" }
+      ]
+    },
+    "release-notes": {
+      "description": "AI release notes on tag",
+      "dependsOn": ["_lib"],
+      "files": [
+        { "src": "release-notes/release-notes.ts", "dest": "{sentinel}/src/release-notes.ts", "type": "managed" }
+      ],
+      "workflows": [
+        { "src": "release-notes/release.yml", "dest": ".github/workflows/release.yml", "type": "managed" }
       ]
     }
   }
