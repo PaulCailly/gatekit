@@ -38,8 +38,12 @@ export default async function update(_args: string[]): Promise<number> {
   let conflicts = 0;
   for (const row of classify(root, cwd, manifest, reg)) {
     if (row.state === "owned" || row.state === "up-to-date") continue;
+    if (!row.src) {
+      console.log(`  orphaned  ${row.dest} (no longer in the registry; skipping)`);
+      continue;
+    }
     const abs = join(cwd, row.dest);
-    const upstream = readItemFile(root, row.src!);
+    const upstream = readItemFile(root, row.src);
     if (row.state === "update-available") {
       writeFileSync(abs, upstream);
       manifest.installed[row.dest] = { sha: sha(upstream), type: "managed", version: reg.version };

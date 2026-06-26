@@ -10,6 +10,7 @@ export interface Item {
 export interface Registry { version: string; items: Record<string, Item> }
 
 export function registryRoot(): string {
+  if (process.env.REPO_HARNESS_ROOT) return process.env.REPO_HARNESS_ROOT;
   return fileURLToPath(new URL("..", import.meta.url)); // package root (dist/ -> ..)
 }
 
