@@ -147,4 +147,4 @@ managed file, locally edited  →  new version placed as <file>.harness-new
 owned file                    →  never touched (not even read by `update`)
 ```
 
-After an update that produced `.harness-new` files, run `npx repo-harness diff` to see what changed, merge manually, then delete the `.harness-new` file and re-run `npx repo-harness update` (or update the SHA in `repo-harness.json` manually).
+After an update that produced `.harness-new` files, run `npx repo-harness diff` to see what changed upstream. Then manually merge the upstream changes from `<file>.harness-new` into your edited file and delete the `.harness-new` file. Finally, update the `sha` for that file in `repo-harness.json` to match the new on-disk content — once the recorded SHA matches the file on disk, `update` will treat it as unmodified and overwrite cleanly on the next run.

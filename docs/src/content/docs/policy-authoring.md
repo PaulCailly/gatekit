@@ -25,21 +25,21 @@ egressAllowlist: [
   {
     host: 'api.stripe.com',         // exact hostname (no protocol, no path)
     service: 'Stripe',              // human-readable service name
-    scope: 'payments',              // what feature uses this service
+    scope: 'server',                // 'server' | 'client'
     data: ['payment_method', 'amount', 'customer_id'],  // data types sent
     lawfulBasis: 'contract',        // GDPR lawful basis
   },
   {
     host: 'sentry.io',
     service: 'Sentry',
-    scope: 'error-monitoring',
+    scope: 'server',
     data: ['stack_trace', 'user_id', 'session_id'],
     lawfulBasis: 'legitimate_interest',
   },
   {
     host: 'fonts.googleapis.com',
     service: 'Google Fonts',
-    scope: 'ui',
+    scope: 'client',
     data: [],                       // no personal data
     lawfulBasis: 'legitimate_interest',
   },
@@ -81,13 +81,14 @@ Keep these patterns narrow to minimise false positives. The default scaffold inc
 
 ### Analytics seam
 
-Specify the file(s) that are the **only** permitted location for analytics/tracking calls. Any tracking call found outside these files is flagged:
+Specify the directory that is the **only** permitted location for analytics/tracking calls. Any vendor capture call found outside that directory is flagged:
 
 ```js
-analyticsSeam: [
-  'src/lib/analytics.ts',
-  'src/lib/posthog.ts',
-],
+analytics: {
+  seamDir: 'src/analytics/',
+  vendorCapture: /\bposthog\.capture\s*\(/,
+  forbiddenKeyFragments: ['name', 'email', 'phone', 'password'],
+},
 ```
 
 This enforces a clean architecture: tracking is centralised, not scattered across components.
@@ -124,7 +125,7 @@ export const controls = [
     title: 'Data minimisation',
     description: 'Only collect data necessary for the stated purpose.',
     implemented: true,
-    evidence: 'analyticsSeam enforces tracking is centralised; only page path and anonymous session ID are collected.',
+    evidence: 'analytics.seamDir enforces tracking is centralised; only page path and anonymous session ID are collected.',
   },
   {
     id: 'PRIV-002',
@@ -187,7 +188,7 @@ export const subProcessors = [
 
 Two real-world repo-harness adopters illustrate how policy is shaped by the app:
 
-**Event platform (Next.js + Prisma + Neon):** Egress allowlist covers Stripe (payments), Resend (transactional email), and PostHog (analytics). `analyticsSeam` points to `src/lib/posthog.ts`. `serverOnlySecrets` includes `DATABASE_URL` and `STRIPE_SECRET_KEY`. Controls document GDPR Article 30 record of processing and right-to-erasure implementation via a user deletion endpoint.
+**Event platform (Next.js + Prisma + Neon):** Egress allowlist covers Stripe (payments), Resend (transactional email), and PostHog (analytics). `analytics.seamDir` points to `src/analytics/`. `serverOnlySecrets` includes `DATABASE_URL` and `STRIPE_SECRET_KEY`. Controls document GDPR Article 30 record of processing and right-to-erasure implementation via a user deletion endpoint.
 
 **Internal monitoring app (Amplify + IAM auth):** No external analytics egress (IAM-authenticated AWS endpoints are exempted as infrastructure calls). `structuralChecks` enforces that every API handler imports from `src/auth/verify-iam.ts`. Controls document that all data stays within the AWS region (eu-west-3) and reference the Amplify DPA.
 

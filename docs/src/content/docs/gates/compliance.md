@@ -57,14 +57,14 @@ export default {
     {
       host: 'api.stripe.com',
       service: 'Stripe',
-      scope: 'payments',
+      scope: 'server',
       data: ['payment_method', 'amount'],
       lawfulBasis: 'contract',
     },
     {
       host: 'sentry.io',
       service: 'Sentry',
-      scope: 'error-monitoring',
+      scope: 'server',
       data: ['stack_trace', 'user_id'],
       lawfulBasis: 'legitimate_interest',
     },
@@ -79,8 +79,12 @@ export default {
     /ghp_[A-Za-z0-9]{36}/,
   ],
 
-  // File(s) allowed to contain analytics/tracking calls
-  analyticsSseam: ['src/lib/analytics.ts'],
+  // Analytics seam: vendor capture calls only permitted inside seamDir
+  analytics: {
+    seamDir: 'src/analytics/',
+    vendorCapture: /\bposthog\.capture\s*\(/,
+    forbiddenKeyFragments: ['name', 'email', 'phone', 'password'],
+  },
 
   // Optional: structural checks (e.g. every API route must call auth())
   structuralChecks: [],
