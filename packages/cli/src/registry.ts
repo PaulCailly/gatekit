@@ -18,7 +18,7 @@ export function loadRegistry(root: string): Registry {
 }
 
 export function readItemFile(root: string, src: string): string {
-  return readFileSync(join(root, src), "utf8");
+  return readFileSync(join(root, "registry", src), "utf8");
 }
 
 export function resolveDeps(reg: Registry, names: string[]): string[] {
