@@ -1,0 +1,64 @@
+---
+title: repo-harness
+description: Ship quality and compliance gates into any repo without copy-paste drift.
+template: splash
+hero:
+  tagline: Vendor compliance and quality gates like shadcn/ui — managed engines, owned policies, zero copy-paste drift.
+  actions:
+    - text: Get Started
+      link: /repo-harness/cli/
+      icon: right-arrow
+    - text: GitHub
+      link: https://github.com/PaulCailly/repo-harness
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## The problem: copy-paste drift
+
+Most teams share CI quality and compliance checks by forking or copying YAML/scripts into each repo. Within weeks, repos diverge: one team upgrades the compliance audit, another hardens the quality thresholds — and there is no single source of truth. Re-syncing means manually diffing across repos and hoping nothing important slipped through.
+
+## The shadcn model
+
+repo-harness borrows the pattern that [shadcn/ui](https://ui.shadcn.com) uses for UI components: **vendor the code into your repo** rather than hiding it behind a package boundary.
+
+Every gate is split into two layers:
+
+| Layer | Owner | Update behaviour |
+|-------|-------|------------------|
+| **Managed engine** (workflows, bot scripts) | repo-harness | Overwritten on `update` if file is unedited; otherwise placed as `.harness-new` for manual merge |
+| **Owned policy** (`config.mjs`, `controls.mjs`, `QA-MEMORY.md`) | Your team | Scaffolded once, **never overwritten** — your policy lives in your repo |
+
+This means you get upstream engine improvements with a single command while keeping full control over your thresholds, allowlists, and compliance controls.
+
+## Quickstart
+
+```bash
+# 1. Initialise the manifest in your repo
+npx repo-harness init
+
+# 2. Add the gates you want
+npx repo-harness add quality compliance
+
+# 3. Check what's installed
+npx repo-harness list
+```
+
+After `init`, a `repo-harness.json` manifest is created at your repo root. After `add`, the managed engine files are vendored into `.github/` and `scripts/`, and the owned policy stubs are scaffolded — ready for you to fill in.
+
+<CardGrid stagger>
+  <Card title="CLI Reference" icon="open-book">
+    All commands, flags, and the `repo-harness.json` schema — [cli](/repo-harness/cli/)
+  </Card>
+  <Card title="Quality Gate" icon="approve-check-circle">
+    Cyclomatic complexity, LOC, nesting, params, duplication — [gates/quality](/repo-harness/gates/quality/)
+  </Card>
+  <Card title="Compliance Gate" icon="shield">
+    Egress allowlist, secret detection, telemetry seam audit — [gates/compliance](/repo-harness/gates/compliance/)
+  </Card>
+  <Card title="Bots" icon="comment">
+    `/review`, `/debate`, `/qa`, `release-notes` — [gates/bots](/repo-harness/gates/bots/)
+  </Card>
+</CardGrid>

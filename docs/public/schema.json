@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paulcailly.github.io/repo-harness/schema.json",
+  "title": "repo-harness manifest",
+  "description": "Schema for repo-harness.json — the manifest file that tracks installed gates and managed/owned files.",
+  "type": "object",
+  "required": ["version"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference URL"
+    },
+    "version": {
+      "type": "string",
+      "description": "Manifest schema version",
+      "enum": ["1"]
+    },
+    "packageManager": {
+      "type": "string",
+      "description": "Package manager used in this repo",
+      "enum": ["npm", "pnpm", "yarn"]
+    },
+    "paths": {
+      "type": "object",
+      "description": "Directory paths where repo-harness files are vendored",
+      "additionalProperties": false,
+      "properties": {
+        "scripts": {
+          "type": "string",
+          "description": "Directory where script files are vendored (e.g. scripts/sentinel)"
+        },
+        "sentinel": {
+          "type": "string",
+          "description": "Directory where sentinel/bot handler files live (e.g. .github/sentinel)"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "description": "Map of feature name to feature configuration",
+      "additionalProperties": {
+        "$ref": "#/$defs/featureConfig"
+      }
+    },
+    "installed": {
+      "type": "object",
+      "description": "Map of relative file path to install record — used for drift detection and update semantics",
+      "additionalProperties": {
+        "$ref": "#/$defs/installedFile"
+      }
+    }
+  },
+  "$defs": {
+    "featureConfig": {
+      "type": "object",
+      "description": "Configuration for a single installed feature",
+      "required": ["enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this gate is active"
+        },
+        "mode": {
+          "type": "string",
+          "description": "report: annotate PRs but always pass; block: fail the CI check on violations",
+          "enum": ["report", "block"]
+        }
+      }
+    },
+    "installedFile": {
+      "type": "object",
+      "description": "Install record for a single file",
+      "required": ["sha", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "sha": {
+          "type": "string",
+          "description": "SHA-256 hex digest of the file contents at install time — used to detect local edits"
+        },
+        "type": {
+          "type": "string",
+          "description": "managed: engine file overwritten by update; owned: policy file scaffolded once, never overwritten",
+          "enum": ["managed", "owned"]
+        },
+        "version": {
+          "type": "string",
+          "description": "Registry version string at install time (managed files only)"
+        }
+      }
+    }
+  }
+}
