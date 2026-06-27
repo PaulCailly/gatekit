@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 22
       - name: Provide TypeScript for the health analyzer
-        run: npm i --no-save --no-audit --no-fund typescript@^5
+        run: npm i --no-save --no-audit --no-fund --legacy-peer-deps typescript@^5
       - name: Code-health metrics
         run: node scripts/health/index.mjs src --json .health/health.json | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Install report deps
