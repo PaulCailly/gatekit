@@ -1,5 +1,5 @@
 {
-  "version": "0.4.1",
+  "version": "0.5.0",
   "items": {
     "_lib": {
       "description": "shared sentinel lib",
@@ -92,6 +92,11 @@
         {
           "src": "_lib/src/lib/types.ts",
           "dest": "{sentinel}/src/lib/types.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/review-fixes.ts",
+          "dest": "{sentinel}/src/lib/review-fixes.ts",
           "type": "managed"
         },
         {
