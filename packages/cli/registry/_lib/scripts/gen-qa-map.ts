@@ -11,6 +11,11 @@ import { readdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
+// DEV COPY — exercised by src/lib/qa-map.test.ts in the registry dev tree.
+// The SHIPPED copy is at qa/scripts/gen-qa-map.ts (installed to
+// {sentinel}/scripts/gen-qa-map.ts) and uses "../src/lib/route-extract.js".
+// Consolidation is deferred because the two layout roots differ; keep import
+// paths in sync when changing shared logic.
 import { extractRoutes, type QaConfig } from "../src/lib/route-extract.js";
 
 const SENTINEL_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

@@ -17,10 +17,12 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { generateBible } from "../../_lib/src/lib/bible-gen.js";
-import { getClient } from "../../_lib/src/lib/openrouter.js";
-import { extractRoutes, type QaConfig, type GeneratedFile } from "../../_lib/src/lib/route-extract.js";
-import type { QaOverlay } from "../../_lib/src/lib/qa-map.js";
+// Deployed layout: this file lives at {sentinel}/scripts/gen-bible.ts;
+// shared libs are at {sentinel}/src/lib/ — so all imports use ../src/lib/.
+import { generateBible } from "../src/lib/bible-gen.js";
+import { getClient } from "../src/lib/openrouter.js";
+import { extractRoutes, type QaConfig, type GeneratedFile } from "../src/lib/route-extract.js";
+import type { QaOverlay } from "../src/lib/qa-map.js";
 
 // ── paths ────────────────────────────────────────────────────────────────────
 
