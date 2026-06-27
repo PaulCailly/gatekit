@@ -1,7 +1,8 @@
 # registry/quality/quality-gate.yml
 # Code-health gate — deterministic, dependency-free. Scores src/ and posts a
-# sticky "Code Quality" PR comment. Informational by default (never blocks);
-# set features.quality.mode = "block" in repo-harness.json to fail on regressions.
+# sticky "Code Quality" PR comment.  This gate is informational by design and
+# never blocks: the health engine (index.mjs) always exits 0 regardless of
+# score.  There is no block mode for quality.
 name: Quality gate
 on:
   pull_request:

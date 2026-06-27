@@ -20,6 +20,12 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm test
+      - name: Assert tag matches registry version
+        working-directory: packages/cli
+        run: |
+          REG=$(node -e "process.stdout.write(require('./registry.json').version)")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$REG" != "$TAG" ]; then echo "Tag $TAG != registry.json version $REG"; exit 1; fi
       - run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
       - run: npm publish --provenance --access public
         env:

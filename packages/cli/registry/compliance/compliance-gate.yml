@@ -12,9 +12,12 @@
 # It is also the deterministic grounding the AI `/compliance` audit reads (see
 # compliance.yml).
 #
-# To make the gate informational instead of blocking, add `--no-fail` to the
-# run line below:
-#   node scripts/compliance/index.mjs --json .compliance/compliance.json --no-fail
+# Default enforcement mode: report (informational, --no-fail).
+# Violations are scored and surfaced in the step summary but the check never
+# fails.  To make violations block the PR, set:
+#   features.compliance.mode = "block"
+# in repo-harness.json.  In block mode the analyzer exits non-zero on a
+# violation, and bash pipefail propagates that exit through the tee pipe.
 
 name: Compliance gate
 
@@ -34,8 +37,15 @@ jobs:
         with:
           node-version: 22
 
+      - name: Resolve enforcement mode
+        id: rh
+        run: |
+          MODE=$(node -e "try{const m=JSON.parse(require('fs').readFileSync('repo-harness.json','utf8'));process.stdout.write((m.features&&m.features.compliance&&m.features.compliance.mode)||'report')}catch(e){process.stdout.write('report')}")
+          echo "Compliance gate enforcement mode: $MODE"
+          if [ "$MODE" = "block" ]; then echo "nofail=" >> "$GITHUB_OUTPUT"; else echo "nofail=--no-fail" >> "$GITHUB_OUTPUT"; fi
+
       - name: Privacy & compliance gate
         run: |
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          node scripts/compliance/index.mjs --json .compliance/compliance.json | tee -a "$GITHUB_STEP_SUMMARY"
+          node scripts/compliance/index.mjs ${{ steps.rh.outputs.nofail }} --json .compliance/compliance.json | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
