@@ -80,7 +80,7 @@ export function parseLedger(memory: string): Record<string, string> {
  *  overlay both. */
 export function upsertLedger(memory: string, coveredPaths: string[], date: string, seedRoutes?: Record<string, string>): string {
   const fromBlock = parseLedger(memory);
-  let routes: Record<string, string> = { ...(seedRoutes ?? {}), ...fromBlock };
+  const routes: Record<string, string> = { ...(seedRoutes ?? {}), ...fromBlock };
   for (const p of coveredPaths) routes[p] = date;
   const block = "```qa-coverage\n" + JSON.stringify({ routes }) + "\n```";
   const hasBlock = /```qa-coverage/.test(memory);
