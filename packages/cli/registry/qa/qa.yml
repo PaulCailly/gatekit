@@ -9,20 +9,7 @@
 #   /qa all        → full-app sweep (use before a release / high-blast-radius PR)
 #   /qa <url>      → test an explicit URL instead of the resolved preview
 #
-# Each run records a session video (published to a private Vercel Blob store and
-# linked in the report), reports token/cost metrics, and distils what it learned
-# into .github/sentinel/QA-MEMORY.md (committed to main) so the next run starts
-# smarter. With QA_LOGIN_* + QA_SUPABASE_* set it explores behind the login wall.
-#
-# Setup:
-#   - GEMINI_API_KEY            (required) — the computer-use agent
-#   - OPENROUTER_API_KEY        (required for memory) — cheap model that distils QA-MEMORY
-#   - BLOB_READ_WRITE_TOKEN     (optional) — private Vercel Blob store for the session video
-#   - BLOB_STORE_ID             (optional) — paired with the token above
-#   - QA_LOGIN_PHONE / QA_LOGIN_OTP (optional) — a Supabase test phone number and its
-#                               fixed OTP code (no SMS sent) for authenticated exploration
-#   - QA_SUPABASE_URL / QA_SUPABASE_ANON_KEY (optional) — same project as the app's
-#                               VITE_SUPABASE_URL; used to mint the test number's session
+# Setup: add a GEMINI_API_KEY repository secret.
 
 name: QA
 
@@ -39,8 +26,9 @@ permissions:
   # reactions endpoint is /repos/{o}/{r}/issues/comments/{id}/reactions.
   issues: write
   # Resolve the PR's preview URL: deployments → the Vercel deployment's
-  # environment_url, statuses → the vercel.app commit-status fallback. A
-  # `permissions:` block is exhaustive, so without these the lookups 403.
+  # environment_url (the working path for backresto), statuses → the vercel.app
+  # commit-status fallback. A `permissions:` block is exhaustive, so without
+  # these the lookups 403 with "Resource not accessible by integration".
   deployments: read
   statuses: read
 
@@ -53,9 +41,10 @@ jobs:
     # browser+Gemini sweep, so only a repo owner/member/collaborator may trigger
     # it — a drive-by commenter on an open PR can't burn the budget. (This is
     # stricter than /review and /debate on purpose, given the cost asymmetry.)
+    # `/qa all` is handled by the gate/shard/aggregate jobs below; exclude it here.
     if: >-
       ${{ github.event.issue.pull_request
-        && (github.event.comment.body == '/qa' || startsWith(github.event.comment.body, '/qa '))
+        && (github.event.comment.body == '/qa' || (startsWith(github.event.comment.body, '/qa ') && !startsWith(github.event.comment.body, '/qa all')))
         && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) }}
     # Job-level (not workflow-level) concurrency, for the same reason as the
     # review/debate jobs: workflow-level groups resolve before the job `if`, so a
@@ -90,16 +79,152 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Distils each run into the QA memory (cheap model via OpenRouter).
+          # Distils each run into the QA memory (cheap GLM model via OpenRouter).
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Optional: a disposable test account so QA explores behind the login
+          # wall. If unset, QA stays on the logged-out surface.
+          QA_LOGIN_EMAIL: ${{ secrets.QA_LOGIN_EMAIL }}
+          QA_LOGIN_PASSWORD: ${{ secrets.QA_LOGIN_PASSWORD }}
+          # Optional: the test account's staff PIN, so QA passes the PIN gate.
+          QA_PIN: ${{ secrets.QA_PIN }}
           # Session-video upload → private Vercel Blob store (RW token auth).
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
           BLOB_STORE_ID: ${{ secrets.BLOB_STORE_ID }}
-          # Optional: explore behind the login wall. atlas auth is phone SMS-OTP /
-          # Apple / Google; we mint a session for a Supabase TEST phone number
-          # (fixed OTP code, no SMS sent) via GoTrue verify and seed it into the
-          # browser. If unset, QA stays on the logged-out surface.
-          QA_LOGIN_PHONE: ${{ secrets.QA_LOGIN_PHONE }}
-          QA_LOGIN_OTP: ${{ secrets.QA_LOGIN_OTP }}
-          QA_SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
-          QA_SUPABASE_ANON_KEY: ${{ secrets.QA_SUPABASE_ANON_KEY }}
+
+  # ── /qa all: gate → shard (matrix) → aggregate ────────────────────────────
+  #
+  # gate:      resolve PR head sha + preview URL, enumerate domains, post a
+  #            "QA in progress" status comment.
+  # shard:     fan-out matrix — each domain gets its own runner + browser sweep,
+  #            writes a ShardResult JSON to QA_SHARD_OUT, uploads as artifact.
+  # aggregate: download all shard artifacts, synthesise rollup comment + ledger.
+
+  gate:
+    if: >-
+      ${{ github.event.issue.pull_request
+        && (github.event.comment.body == '/qa all' || startsWith(github.event.comment.body, '/qa all '))
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) }}
+    concurrency:
+      group: qa-pr-${{ github.event.issue.number }}-${{ github.event.comment.id }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.gate.outputs.url }}
+      domains: ${{ steps.gate.outputs.domains }}
+      status_id: ${{ steps.gate.outputs.status_id }}
+      pr: ${{ steps.pr.outputs.number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+    steps:
+      # Run from the BASE branch (trusted) — same rationale as the qa job above.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve PR number + head sha
+        id: pr
+        run: |
+          echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          HEAD=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }} --jq .head.sha)
+          echo "head_sha=$HEAD" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install sentinel deps
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Gate (enumerate domains + resolve preview)
+        id: gate
+        working-directory: .github/sentinel
+        run: npx tsx src/qa.ts
+        env:
+          QA_GATE: "1"
+          QA_PR: ${{ steps.pr.outputs.number }}
+          QA_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  shard:
+    needs: gate
+    if: ${{ needs.gate.outputs.domains != '' && needs.gate.outputs.domains != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        domain: ${{ fromJSON(needs.gate.outputs.domains) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install sentinel deps
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        working-directory: .github/sentinel
+        run: npx playwright install --with-deps chromium
+
+      - name: Shard ${{ matrix.domain }}
+        working-directory: .github/sentinel
+        run: npx tsx src/qa.ts
+        env:
+          QA_SHARD_DOMAIN: ${{ matrix.domain }}
+          QA_TARGET_URL: ${{ needs.gate.outputs.url }}
+          # Unique filename per domain so merge-multiple in aggregate doesn't collide.
+          QA_SHARD_OUT: ${{ github.workspace }}/shard-${{ matrix.domain }}.json
+          QA_PR: ${{ needs.gate.outputs.pr }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          QA_LOGIN_EMAIL: ${{ secrets.QA_LOGIN_EMAIL }}
+          QA_LOGIN_PASSWORD: ${{ secrets.QA_LOGIN_PASSWORD }}
+          QA_PIN: ${{ secrets.QA_PIN }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          BLOB_STORE_ID: ${{ secrets.BLOB_STORE_ID }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-shard-${{ matrix.domain }}
+          path: ${{ github.workspace }}/shard-${{ matrix.domain }}.json
+          if-no-files-found: ignore
+
+  aggregate:
+    needs: [gate, shard]
+    if: ${{ always() && needs.gate.result == 'success' && needs.gate.outputs.domains != '[]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install sentinel deps
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Ensure shards directory exists
+        run: mkdir -p ${{ github.workspace }}/shards
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ github.workspace }}/shards
+          pattern: qa-shard-*
+          merge-multiple: true
+
+      - name: Aggregate shard results
+        working-directory: .github/sentinel
+        run: npx tsx src/qa.ts
+        env:
+          QA_AGGREGATE_DIR: ${{ github.workspace }}/shards
+          QA_TARGET_URL: ${{ needs.gate.outputs.url }}
+          QA_PR: ${{ needs.gate.outputs.pr }}
+          QA_STATUS_ID: ${{ needs.gate.outputs.status_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

@@ -19,6 +19,7 @@ export default defineConfig({
 						{ label: 'Quality', slug: 'gates/quality' },
 						{ label: 'Compliance', slug: 'gates/compliance' },
 						{ label: 'Bots', slug: 'gates/bots' },
+						{ label: 'QA Bible', slug: 'gates/qa-bible' },
 					],
 				},
 				{ label: 'Policy Authoring', slug: 'policy-authoring' },

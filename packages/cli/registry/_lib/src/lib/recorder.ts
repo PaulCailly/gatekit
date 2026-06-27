@@ -17,10 +17,10 @@ const LINK_TTL_DAYS = 7;
  * never fatal).
  */
 export async function uploadVideo(video: Buffer, pathname: string): Promise<string | null> {
-  // `put()` authenticates purely via BLOB_READ_WRITE_TOKEN (the store is encoded
-  // in the token); the SDK never reads BLOB_STORE_ID. Gate on the token alone so a
-  // half-configured run (store id set, token missing) skips cleanly instead of
-  // proceeding into a guaranteed `put` failure.
+  // put() authenticates solely via BLOB_READ_WRITE_TOKEN; BLOB_STORE_ID is not
+  // used by the upload itself.  Gate on the token alone so a half-configured
+  // environment (store id set, token missing) skips cleanly instead of
+  // proceeding into a guaranteed put() failure.
   if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
   try {
     const blob = await put(pathname, video, {

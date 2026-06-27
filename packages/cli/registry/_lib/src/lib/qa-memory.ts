@@ -50,6 +50,42 @@ export interface RunFacts {
   paths: string[];
   findings: string[];
   summary: string;
+  /** Coverage snapshot for this run (null when the map was unavailable). */
+  coverage: { pct: number; covered: number; total: number } | null;
+  /** In-scope route keys covered (for the ledger). */
+  coveredPaths: string[];
+}
+
+/** Extract the `qa-coverage` ledger routes map from a memory string. The single
+ *  source of truth for the block format — used by upsertLedger and the qa.ts
+ *  readers. Returns {} when the block is absent or malformed. */
+export function parseLedger(memory: string): Record<string, string> {
+  const m = /```qa-coverage\s*([\s\S]*?)```/.exec(memory);
+  if (!m) return {};
+  try {
+    return (JSON.parse(m[1]) as { routes?: Record<string, string> }).routes ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Insert or update the machine-readable coverage ledger — a fenced `qa-coverage`
+ *  JSON block mapping each covered route key to its last-seen date. Merges new
+ *  paths, refreshes dates for re-seen ones, preserves the rest and all surrounding
+ *  prose. Idempotent: always leaves exactly one block.
+ *
+ *  `seedRoutes` (optional) provides a baseline of previously-known routes that are
+ *  applied FIRST, so history survives even if the LLM-synthesized memory drops the
+ *  fenced block. Routes parsed from the block overlay the seed; `coveredPaths`
+ *  overlay both. */
+export function upsertLedger(memory: string, coveredPaths: string[], date: string, seedRoutes?: Record<string, string>): string {
+  const fromBlock = parseLedger(memory);
+  let routes: Record<string, string> = { ...(seedRoutes ?? {}), ...fromBlock };
+  for (const p of coveredPaths) routes[p] = date;
+  const block = "```qa-coverage\n" + JSON.stringify({ routes }) + "\n```";
+  const hasBlock = /```qa-coverage/.test(memory);
+  if (hasBlock) return memory.replace(/```qa-coverage\s*([\s\S]*?)```/, block);
+  return memory.replace(/\s*$/, "") + "\n\n" + block + "\n";
 }
 
 /** Merge this run's facts into the existing memory via a cheap model. Returns the
@@ -69,11 +105,13 @@ export async function synthesizeMemory(existing: string, facts: RunFacts): Promi
     "- Gotchas: durable quirks (a page that needs an action to load, URL-encoding traps, the auth/login path…).",
     "- Tips: how to explore efficiently next time, and which areas still look unexplored.",
     "- Be terse and factual. No fluff.",
+    "- PRESERVE verbatim any fenced ```qa-coverage``` block — it's machine-maintained; never edit or remove it.",
     "",
     `### This run — ${facts.date} · ${facts.mode} · ${facts.target}`,
     `Paths visited: ${facts.paths.join(", ") || "—"}`,
     `Findings: ${facts.findings.join(" | ") || "none"}`,
     `Agent's coverage summary: ${facts.summary || "—"}`,
+    facts.coverage ? `Coverage this run: ${facts.coverage.covered}/${facts.coverage.total} (${facts.coverage.pct}%)` : "Coverage: n/a",
     "",
     "### Existing memory (update this)",
     existing || "(empty — create it from scratch, with the four sections above)",

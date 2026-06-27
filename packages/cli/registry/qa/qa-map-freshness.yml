@@ -1,0 +1,58 @@
+# QA route-map freshness check — deterministic, NO LLM, free to run.
+#
+# Ensures `qa-map.generated.json` is kept in sync with the actual route
+# tree.  On every pull request:
+#   1. Re-runs the deterministic route extractor (`npm run qa:gen-map`).
+#   2. Fails if the committed `qa-map.generated.json` differs from what
+#      the extractor would produce — meaning a route changed without the
+#      author regenerating the map.
+#
+# Fix: run `npm run qa:gen-map` inside `.github/sentinel` and commit the
+# updated `src/lib/qa-map.generated.json`.
+#
+# The owned overlay (`qa-map.overlay.ts`) is NOT checked here — it is
+# validated at runtime by `mergeQaMap()`'s drift-throw, which fires on
+# every QA run and will surface any stale overlay entries immediately.
+#
+# Setup: no secrets required.
+
+name: QA map freshness
+
+on:
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  qa-map-freshness:
+    name: Route-map up to date?
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install sentinel dependencies
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Regenerate route map (deterministic, no LLM)
+        working-directory: .github/sentinel
+        run: npm run qa:gen-map
+
+      - name: Check qa-map.generated.json is up to date
+        run: |
+          if ! git diff --exit-status -- '*qa-map.generated.json'; then
+            echo ""
+            echo "::error::qa-map.generated.json is stale — a route was added or"
+            echo "::error::removed without regenerating the map."
+            echo "::error::"
+            echo "::error::Fix: run  npm run qa:gen-map  inside .github/sentinel"
+            echo "::error::and commit the updated src/lib/qa-map.generated.json."
+            exit 1
+          fi
+          echo "qa-map.generated.json is up to date."

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paulcailly.github.io/gatekit/qa-map.schema.json",
+  "title": "gatekit qa-map.generated.json",
+  "type": "object",
+  "required": ["generatedAt", "locales", "routes"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": { "type": ["string", "null"] },
+    "locales": { "type": "array", "items": { "type": "string" } },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["path", "section", "module"], "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "pattern": "^/" },
+          "section": { "type": "string" },
+          "module": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

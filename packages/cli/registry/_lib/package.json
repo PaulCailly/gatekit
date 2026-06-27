@@ -9,6 +9,8 @@
     "review": "tsx src/review.ts",
     "debate": "tsx src/debate.ts",
     "qa": "tsx src/qa.ts",
+    "qa:gen-map": "tsx scripts/gen-qa-map.ts",
+    "qa:gen-bible": "tsx scripts/gen-bible.ts",
     "quality-report": "tsx src/quality-report.ts",
     "compliance-report": "tsx src/compliance-report.ts",
     "compliance-review": "tsx src/compliance-review.ts",

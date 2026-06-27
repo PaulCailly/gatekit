@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "0.5.1",
   "items": {
     "_lib": {
       "description": "shared sentinel lib",
@@ -100,6 +100,11 @@
           "type": "managed"
         },
         {
+          "src": "_lib/package-lock.json",
+          "dest": "{sentinel}/package-lock.json",
+          "type": "managed"
+        },
+        {
           "src": "_lib/package.json",
           "dest": "{sentinel}/package.json",
           "type": "managed"
@@ -107,11 +112,6 @@
         {
           "src": "_lib/tsconfig.json",
           "dest": "{sentinel}/tsconfig.json",
-          "type": "managed"
-        },
-        {
-          "src": "_lib/package-lock.json",
-          "dest": "{sentinel}/package-lock.json",
           "type": "managed"
         }
       ]
@@ -253,7 +253,7 @@
       ]
     },
     "qa": {
-      "description": "/qa exploratory computer-use QA",
+      "description": "/qa exploratory computer-use QA (divide-and-conquer, Gemini-driven)",
       "dependsOn": [
         "_lib"
       ],
@@ -261,13 +261,56 @@
         "GEMINI_API_KEY",
         "OPENROUTER_API_KEY",
         "BLOB_READ_WRITE_TOKEN",
-        "BLOB_STORE_ID"
+        "BLOB_STORE_ID",
+        "QA_LOGIN_EMAIL",
+        "QA_LOGIN_PASSWORD",
+        "QA_PIN"
       ],
       "files": [
         {
           "src": "qa/qa.ts",
           "dest": "{sentinel}/src/qa.ts",
           "type": "managed"
+        },
+        {
+          "src": "qa/scripts/gen-qa-map.ts",
+          "dest": "{sentinel}/scripts/gen-qa-map.ts",
+          "type": "managed"
+        },
+        {
+          "src": "qa/scripts/gen-bible.ts",
+          "dest": "{sentinel}/scripts/gen-bible.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/qa-map.ts",
+          "dest": "{sentinel}/src/lib/qa-map.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/qa-shard.ts",
+          "dest": "{sentinel}/src/lib/qa-shard.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/route-extract.ts",
+          "dest": "{sentinel}/src/lib/route-extract.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/bible-gen.ts",
+          "dest": "{sentinel}/src/lib/bible-gen.ts",
+          "type": "managed"
+        },
+        {
+          "src": "qa/qa-map.overlay.ts",
+          "dest": "{sentinel}/src/lib/qa-map.overlay.ts",
+          "type": "owned"
+        },
+        {
+          "src": "qa/qa-map.generated.json",
+          "dest": "{sentinel}/src/lib/qa-map.generated.json",
+          "type": "owned"
         },
         {
           "src": "qa/QA-MEMORY.md",
@@ -279,6 +322,11 @@
         {
           "src": "qa/qa.yml",
           "dest": ".github/workflows/qa.yml",
+          "type": "managed"
+        },
+        {
+          "src": "qa/qa-map-freshness.yml",
+          "dest": ".github/workflows/qa-map-freshness.yml",
           "type": "managed"
         }
       ]

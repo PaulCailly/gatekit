@@ -7,8 +7,13 @@
  * `lib/gemini.ts`, and `lib/browser.ts`.
  */
 
-/** `/qa` (scoped, the default) vs `/qa all` (full-app sweep). */
-export type QaMode = "scoped" | "full";
+import type { Coverage } from "./qa-map.js";
+
+/** `/qa` (scoped, the default) vs `/qa all` (full-app sweep) vs `/qa focus <domain>` vs `/qa i18n` vs `/qa offline`. */
+export type QaMode = "scoped" | "full" | "focus" | "i18n" | "offline";
+
+/** Which device viewport the run emulates. */
+export type QaViewport = "desktop" | "mobile";
 
 /** Criticality of a QA finding, most → least severe. Mirrors `/review`'s
  *  three-tier scale but adds a top "critical" rung for outright broken flows. */
@@ -35,6 +40,12 @@ export const QA_CONFIG = {
   environment: "browser" as const,
   /** Viewport the screenshots are taken at; coordinates are scaled to this. */
   screen: { width: 1440, height: 900 },
+  /** Named viewports for `/qa mobile`. `screen` (above) stays the desktop default
+   *  used wherever a viewport isn't passed explicitly. */
+  viewports: {
+    desktop: { width: 1440, height: 900 },
+    mobile: { width: 390, height: 844 },
+  } as Record<QaViewport, { width: number; height: number }>,
   /**
    * Direct address-bar navigation and history-forward let the agent teleport to
    * routes instead of discovering them by clicking, and aren't how a real user
@@ -60,7 +71,7 @@ export const QA_CONFIG = {
     "user_consent_management",
     "legal_terms_and_agreements",
   ],
-  budgets: { scoped: 40, full: 160 } as Record<QaMode, number>,
+  budgets: { scoped: 40, full: 900, focus: 60, i18n: 20, offline: 50 } as Record<QaMode, number>,
   /** Same screen seen this many times in a row → the agent is stuck/looping. */
   stuckThreshold: 4,
   /** Gemini 3.5 Flash computer-use pricing, USD per 1M tokens — an ESTIMATE for
@@ -72,6 +83,10 @@ export interface ParsedQa {
   mode: QaMode;
   /** Explicit target URL from the comment, or null → resolve the PR preview. */
   url: string | null;
+  /** Focus-mode domain key (lower-cased), or null. */
+  focus: string | null;
+  /** Device viewport for the run (default desktop). */
+  viewport: QaViewport;
 }
 
 /**
@@ -88,9 +103,39 @@ export function parseQaCommand(body: string): ParsedQa {
 
   let mode: QaMode = "scoped";
   let url: string | null = null;
-  for (const t of tokens) {
-    if (t.toLowerCase() === "all") {
+  let focus: string | null = null;
+  let viewport: QaViewport = "desktop";
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    const lower = t.toLowerCase();
+    if (lower === "all") {
       mode = "full";
+      continue;
+    }
+    if (lower === "focus") {
+      mode = "focus";
+      // The next non-URL token is the domain.
+      const next = tokens[i + 1];
+      if (next && !/^https?:\/\//i.test(next)) {
+        focus = next.toLowerCase();
+        i++;
+      }
+      continue;
+    }
+    if (lower === "i18n") {
+      mode = "i18n";
+      continue;
+    }
+    if (lower === "offline") {
+      mode = "offline";
+      continue;
+    }
+    if (lower === "mobile") {
+      viewport = "mobile";
+      continue;
+    }
+    if (lower === "desktop") {
+      viewport = "desktop";
       continue;
     }
     if (url === null) {
@@ -101,7 +146,7 @@ export function parseQaCommand(body: string): ParsedQa {
       if (/^https?:\/\//i.test(cleaned)) url = cleaned;
     }
   }
-  return { mode, url };
+  return { mode, url, focus, viewport };
 }
 
 export function budgetFor(mode: QaMode): number {
@@ -123,6 +168,70 @@ export function isAllowedUrl(url: string, origin: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** True when a URL path ends in `/pin` — a loose match for the staff-PIN login
+ *  gate. NOTE: this is a suffix heuristic, so a future `/settings/.../pin` index
+ *  route could also match; callers detecting the *login* gate must corroborate
+ *  (e.g. `signIn` ANDs this with a 4-field Chakra PinInput check). */
+export function looksLikePinScreen(url: string): boolean {
+  try {
+    return /\/pin$/.test(new URL(url).pathname.replace(/\/$/, ""));
+  } catch {
+    return false;
+  }
+}
+
+/** Turn indices to cut the network at (~30% in) and restore (~70% in), so the
+ *  middle of the run is offline. */
+export function offlineWindowFor(budget: number): { start: number; end: number } {
+  return { start: Math.floor(budget * 0.3), end: Math.floor(budget * 0.7) };
+}
+
+export interface ConsoleError {
+  phase: "online" | "offline" | "resync";
+  kind: "pageerror" | "console";
+  text: string;
+}
+
+/** Uncaught exceptions during the offline or resync window become `major`
+ *  findings (the app broke without a connection or failed to recover). Plain
+ *  console noise and anything from the online baseline are ignored. */
+export function offlineFindings(errors: ConsoleError[]): QaFinding[] {
+  return errors
+    .filter((e) => e.kind === "pageerror" && (e.phase === "offline" || e.phase === "resync"))
+    .map((e) => {
+      const phaseLabel = e.phase === "resync" ? "reconnecting (resync)" : "offline";
+      return {
+        severity: "major" as QaSeverity,
+        area: "offline",
+        title: `Uncaught error while ${phaseLabel}: ${e.text.slice(0, 80)}`,
+        description: `The app threw an uncaught exception during the ${e.phase} phase — the offline-first experience is broken here.`,
+        steps: "Explored the app, cut the network mid-session, then restored it.",
+        expected: "The app keeps working offline (queuing writes) and resyncs cleanly on reconnect.",
+        actual: e.text,
+      };
+    });
+}
+
+/** One-line probe summary for the report. */
+export function renderOfflineProbe(errors: ConsoleError[], offlineTurns: number): string {
+  if (offlineTurns <= 0) {
+    return [
+      "### 📡 Offline probe",
+      "",
+      "_The agent finished before the offline window — the network was never cut, so this run did not test offline behaviour._",
+      "",
+    ].join("\n");
+  }
+  const offline = errors.filter((e) => e.phase === "offline").length;
+  const resync = errors.filter((e) => e.phase === "resync").length;
+  return [
+    "### 📡 Offline probe",
+    "",
+    `Explored ~${offlineTurns} step(s) with the network cut. Uncaught errors — offline: ${offline}, on resync: ${resync}.`,
+    "",
+  ].join("\n");
 }
 
 /**
@@ -168,18 +277,62 @@ export function isDestructiveIntent(intent: unknown): boolean {
 
 /**
  * Derive the app areas a PR touches from its changed-file paths, so a scoped
- * `/qa` can tell the agent where to concentrate. Screens live under
- * `src/presentation/screens/<area>/…`; we surface those area names. Returns a
- * sorted, de-duplicated list (empty when nothing maps to a screen — the caller
- * then falls back to a light whole-app pass).
+ * `/qa` can tell the agent where to concentrate. Supports two layouts:
+ *   - Legacy:    `src/presentation/screens/<area>/…`
+ *   - Backresto: `src/pages/[locale]/[modules/]<area>/…`
+ * Returns a sorted, de-duplicated list (empty when nothing maps to a page —
+ * the caller then falls back to a light whole-app pass).
  */
 export function affectedAreas(files: string[]): string[] {
   const areas = new Set<string>();
   for (const f of files) {
-    const m = /(?:^|\/)src\/presentation\/screens\/([^/]+)/.exec(f);
-    if (m) areas.add(m[1]);
+    const m = /(?:^|\/)src\/(?:pages\/(?:\[locale\]\/)?(?:modules\/)?|presentation\/screens\/)([a-z0-9][a-z0-9-]*)(?:\/|\.tsx?$)/i.exec(f);
+    if (m && !["_app", "_document", "_error"].includes(m[1].toLowerCase())) areas.add(m[1]);
   }
   return [...areas].sort();
+}
+
+export interface PrComment {
+  author: string;
+  body: string;
+}
+
+/** HTML-comment markers the QA bot stamps on its own PR comments; we exclude
+ *  those from the PR context so the agent never reads its own past output. */
+const QA_SELF_MARKERS = ["<!-- qa:report -->", "<!-- qa:status -->"];
+
+/**
+ * Build the "what this PR is about" prompt section from the PR title, body, and
+ * discussion comments — so the agent tests the actual change and re-checks what
+ * reviewers raised. The QA bot's own status/report comments are excluded
+ * (self-reference), bodies are truncated, and the comment list is capped.
+ * Returns "" when there's nothing useful to add.
+ */
+export function buildPrContext(
+  input: { title: string; body: string | null; comments: PrComment[] },
+  opts: { maxBodyChars?: number; maxComments?: number; maxCommentChars?: number } = {},
+): string {
+  const maxBody = opts.maxBodyChars ?? 1200;
+  const maxComments = opts.maxComments ?? 12;
+  const maxComment = opts.maxCommentChars ?? 280;
+  const trunc = (s: string, n: number) => (s.length > n ? s.slice(0, n).trimEnd() + " …" : s);
+
+  const lines: string[] = [];
+  const title = input.title?.trim();
+  const body = input.body?.trim();
+  if (title) lines.push(`**Title:** ${title}`);
+  if (body) lines.push("", `**Description:**`, trunc(body, maxBody));
+
+  const relevant = input.comments
+    .filter((c) => c.body && !QA_SELF_MARKERS.some((m) => c.body.includes(m)))
+    .slice(0, maxComments)
+    .map((c) => `- [${c.author}] ${trunc(c.body.replace(/\s+/g, " ").trim(), maxComment)}`);
+  if (relevant.length > 0) {
+    lines.push("", "**Reviewers / discussion raised (re-check these):**", ...relevant);
+  }
+
+  if (lines.length === 0) return "";
+  return ["## What this PR is about (test the actual change)", "", ...lines].join("\n");
 }
 
 export interface QaFinding {
@@ -335,6 +488,115 @@ export interface RunMetrics {
   durationMs: number;
 }
 
+export interface DownloadRecord {
+  filename: string;
+  sizeBytes: number;
+}
+
+export type DownloadKind = "pdf" | "csv" | "zip" | "unknown";
+
+export interface DownloadVerdict {
+  filename: string;
+  kind: DownloadKind;
+  sizeBytes: number;
+  ok: boolean;
+  reason: string;
+}
+
+/** Locales whose UI must render right-to-left. */
+export const RTL_LOCALES = ["ar"] as const;
+
+export interface LocaleObservation {
+  locale: string;
+  /** Navigation succeeded and the page rendered (not an error page). */
+  loaded: boolean;
+  htmlLang: string | null;
+  /** Resolved text direction ("ltr" | "rtl" | null when unknown). */
+  dir: string | null;
+  /** documentElement.scrollWidth − clientWidth; >0 means horizontal overflow. */
+  horizontalOverflowPx: number;
+  /** Visible strings that look like untranslated i18n keys (kebab, 3+ segments). */
+  rawKeyHits: string[];
+  /** Visible `{{ … }}` placeholders that were not replaced by i18next (interpolation leak). */
+  interpolationLeaks?: string[];
+}
+
+export interface LocaleVerdict {
+  locale: string;
+  ok: boolean;
+  issues: string[];
+}
+
+/** Build a same-origin locale-root URL, e.g. ("https://x.app/", "ar") → "https://x.app/ar". */
+export function localeRootUrl(origin: string, locale: string): string {
+  return new URL(`/${locale}`, origin).toString().replace(/\/$/, "");
+}
+
+/** Overflow beyond this many pixels counts as a layout problem (sub-pixel/rounding noise tolerated). */
+const OVERFLOW_TOLERANCE_PX = 4;
+
+export function classifyLocale(obs: LocaleObservation): LocaleVerdict {
+  const issues: string[] = [];
+  if (!obs.loaded) {
+    issues.push("locale page failed to load");
+  } else {
+    if ((RTL_LOCALES as readonly string[]).includes(obs.locale) && obs.dir !== "rtl") {
+      issues.push(`expected RTL direction, got "${obs.dir ?? "none"}"`);
+    }
+    if (obs.horizontalOverflowPx > OVERFLOW_TOLERANCE_PX) {
+      issues.push(`horizontal overflow (${obs.horizontalOverflowPx}px) — content clipped or layout broken`);
+    }
+    if (obs.rawKeyHits.length > 0) {
+      issues.push(`possible untranslated keys visible: ${obs.rawKeyHits.slice(0, 5).join(", ")}`);
+    }
+    const leaks = obs.interpolationLeaks ?? [];
+    if (leaks.length > 0) {
+      issues.push(`raw interpolation placeholders visible (untranslated): ${leaks.slice(0, 5).join(", ")}`);
+    }
+    if (obs.htmlLang && obs.htmlLang.split("-")[0].toLowerCase() !== obs.locale.toLowerCase()) {
+      issues.push(`locale redirected — page rendered as "${obs.htmlLang}" instead of "${obs.locale}"`);
+    }
+  }
+  return { locale: obs.locale, ok: issues.length === 0, issues };
+}
+
+/** One finding per issue. Load failures, wrong RTL, and locale redirects are
+ *  `major`; overflow and untranslated keys are `minor`. */
+export function localeFindings(v: LocaleVerdict): QaFinding[] {
+  return v.issues.map((issue) => {
+    const severity: QaSeverity = /failed to load|expected RTL|rendered as|interpolation placeholders/i.test(issue) ? "major" : "minor";
+    return {
+      severity,
+      area: `i18n/${v.locale}`,
+      title: `[${v.locale}] ${issue}`,
+      description: `Localisation check for "${v.locale}": ${issue}.`,
+      steps: `Loaded the ${v.locale} locale root and inspected the page.`,
+      expected: "A correctly localised, well-laid-out page (RTL for Arabic), with no raw translation keys.",
+      actual: issue,
+    };
+  });
+}
+
+/** Render the i18n sweep as a report section: an ok/issue count + a per-locale table.
+ *  Empty string when no locales were swept. */
+export function renderI18nSweep(verdicts: LocaleVerdict[]): string {
+  if (verdicts.length === 0) return "";
+  const okCount = verdicts.filter((v) => v.ok).length;
+  const lines = [
+    "### 🌍 Localisation (i18n) sweep",
+    "",
+    `${okCount} ok · ${verdicts.length - okCount} with issues (of ${verdicts.length} locales)`,
+    "",
+    "| Locale | Status | Issues |",
+    "| --- | --- | --- |",
+  ];
+  for (const v of verdicts) {
+    lines.push(`| ${v.locale} | ${v.ok ? "✅" : "⚠️"} | ${v.ok ? "—" : v.issues.join("; ")} |`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
 export interface ReportOptions {
   mode: QaMode;
   targetUrl: string;
@@ -352,8 +614,113 @@ export interface ReportOptions {
   marker: string;
   /** Optional run cost/metrics, rendered as a benchmark line under the findings. */
   metrics?: RunMetrics;
-  /** Optional published session-video replay URL, linked near the top of the report. */
+  /** Optional published rrweb replay URL, linked near the top of the report. */
   replayUrl?: string | null;
+  /** Optional coverage block (overall + per-domain) rendered above the metrics. */
+  coverage?: Coverage | null;
+  /** Optional export-download verdicts, rendered as a section above coverage. */
+  downloads?: DownloadVerdict[] | null;
+  /** Device viewport the run used, shown in the metrics line. */
+  viewport?: QaViewport;
+  /** Optional i18n sweep verdicts, rendered as a section above coverage. */
+  i18n?: LocaleVerdict[] | null;
+  /** Optional offline-probe data, rendered as a section above downloads. */
+  offline?: { errors: ConsoleError[]; offlineTurns: number } | null;
+  /** Aggregate (fan-out) runs: per-domain shard status so a crashed shard shows
+   *  ✗ <reason> in the coverage table instead of a misleading 0%. */
+  domainStatus?: Array<{ domain: string; ok: boolean; reason?: string }>;
+}
+
+const DOWNLOAD_KINDS: Record<string, DownloadKind> = { pdf: "pdf", csv: "csv", zip: "zip" };
+
+/** Grade a captured download: a known export type (pdf/csv/zip) with non-zero
+ *  bytes passes; anything empty or of an unrecognised type fails. Content is
+ *  never parsed — size + extension are the signal. */
+export function classifyDownload(rec: DownloadRecord): DownloadVerdict {
+  const ext = (rec.filename.split(".").pop() ?? "").toLowerCase();
+  const kind = DOWNLOAD_KINDS[ext] ?? "unknown";
+  let ok = true;
+  let reason = "ok";
+  if (kind === "unknown") {
+    ok = false;
+    reason = `unrecognised export type ".${ext || "(none)"}"`;
+  } else if (rec.sizeBytes <= 0) {
+    ok = false;
+    reason = "downloaded file is empty (0 bytes)";
+  }
+  return { filename: rec.filename, kind, sizeBytes: rec.sizeBytes, ok, reason };
+}
+
+/** A graded export problem becomes a `major` finding so it shows in the report's
+ *  findings list; a good download produces no finding (it's expected behaviour). */
+export function downloadFinding(v: DownloadVerdict): QaFinding | null {
+  if (v.ok) return null;
+  return {
+    severity: "major",
+    area: "exports",
+    title: `Export download problem: ${v.filename}`,
+    description: `An export the agent triggered did not produce a valid file: ${v.reason}.`,
+    steps: "Triggered an export (PDF/CSV) and captured the resulting download.",
+    expected: "A non-empty PDF, CSV, or ZIP file.",
+    actual: `${v.filename} (${v.sizeBytes} bytes) — ${v.reason}.`,
+  };
+}
+
+/** Compact, human-readable B/kB/MB for the download size column. */
+function fmtBytes(n: number): string {
+  if (n >= 1_048_576) return `${(n / 1_048_576).toFixed(1)} MB`;
+  if (n >= 1024) return `${(n / 1024).toFixed(1)} kB`;
+  return `${n} B`;
+}
+
+/** Render the export-downloads section: a verified/failed count line and a table.
+ *  Empty string when no downloads were captured (so the report omits it). */
+export function renderDownloads(verdicts: DownloadVerdict[]): string {
+  if (verdicts.length === 0) return "";
+  const verified = verdicts.filter((v) => v.ok).length;
+  const failed = verdicts.length - verified;
+  const lines = [
+    "### 📥 Export downloads",
+    "",
+    `${verified} verified · ${failed} failed`,
+    "",
+    "| File | Type | Size | OK |",
+    "| --- | --- | --- | --- |",
+  ];
+  for (const v of verdicts) {
+    lines.push(`| \`${v.filename}\` | ${v.kind} | ${fmtBytes(v.sizeBytes)} | ${v.ok ? "✅" : "❌"} |`);
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
+/** Render the coverage block: overall %, a per-domain table, and the out-of-scope
+ *  note. Scoped/focus runs are labelled partial-by-design (only `/qa all` aims at
+ *  full coverage). Pass `domainStatus` (from `ReportOptions`) so aggregate fan-out
+ *  runs can show `✗ <reason>` for a crashed shard instead of a misleading 0%. */
+export function renderCoverage(cov: Coverage, mode: QaMode, domainStatus?: Array<{ domain: string; ok: boolean; reason?: string }>): string {
+  const lines = ["### 🗺️ Coverage", ""];
+  const partial = mode !== "full";
+  lines.push(
+    `Overall: **${cov.overall.covered}/${cov.overall.total} routes (${cov.overall.pct}%)**` +
+      (cov.outOfScopeCount > 0 ? ` · excludes ${cov.outOfScopeCount} out-of-scope` : "") +
+      (partial ? " · _partial by design (this run is not a full sweep)_" : ""),
+    "",
+  );
+  if (cov.domains.length > 0) {
+    lines.push("| Domain | Covered | % |", "| --- | --- | --- |");
+    for (const d of cov.domains) {
+      const flag = d.total > 0 && d.pct === 0 ? " 🔴" : "";
+      const st = domainStatus?.find((s) => s.domain === d.key);
+      const cell = st && !st.ok ? `✗ | ${st.reason ?? "shard failed"}` : `${d.covered}/${d.total} | ${d.pct}%${flag}`;
+      lines.push(`| ${d.label} \`${d.key}\` | ${cell} |`);
+    }
+    lines.push("");
+  }
+  if (cov.outOfScopeRoutes.length > 0) {
+    lines.push(`Out of scope (not counted): ${cov.outOfScopeRoutes.map((r) => `\`${r}\``).join(", ")}`, "");
+  }
+  return lines.join("\n");
 }
 
 function findingBlock(f: QaFinding): string {
@@ -374,7 +741,12 @@ function findingBlock(f: QaFinding): string {
 export function buildReport(opts: ReportOptions): string {
   const findings = sortFindings(dedupeFindings(opts.findings));
   const counts = severityCounts(findings);
-  const label = opts.mode === "full" ? "full-app sweep" : "scoped to PR changes";
+  const label =
+    opts.mode === "full" ? "full-app sweep" :
+    opts.mode === "focus" ? "focused run" :
+    opts.mode === "i18n" ? "i18n sweep" :
+    opts.mode === "offline" ? "offline probe" :
+    "scoped to PR changes";
 
   const parts = [`## 🕵️ QA exploration · ${label}`, "", `**Target:** ${opts.targetUrl}`];
   if (opts.scopeNote) parts.push(opts.scopeNote);
@@ -406,6 +778,22 @@ export function buildReport(opts: ReportOptions): string {
     parts.push("<details>", "<summary>🧭 What the agent exercised</summary>", "", opts.summary, "", "</details>", "");
   }
 
+  if (opts.i18n && opts.i18n.length > 0) {
+    parts.push(renderI18nSweep(opts.i18n), "");
+  }
+
+  if (opts.offline) {
+    parts.push(renderOfflineProbe(opts.offline.errors, opts.offline.offlineTurns), "");
+  }
+
+  if (opts.downloads && opts.downloads.length > 0) {
+    parts.push(renderDownloads(opts.downloads), "");
+  }
+
+  if (opts.coverage) {
+    parts.push(renderCoverage(opts.coverage, opts.mode, opts.domainStatus), "");
+  }
+
   if (opts.metrics) {
     const m = opts.metrics;
     const cost =
@@ -419,7 +807,7 @@ export function buildReport(opts: ReportOptions): string {
     parts.push(
       "---",
       "",
-      `**📊 Run metrics** · \`${QA_CONFIG.model}\` · ${label}`,
+      `**📊 Run metrics** · \`${QA_CONFIG.model}\` · ${label}${opts.viewport ? ` · ${opts.viewport}` : ""}`,
       "",
       "| Steps | Tokens (in/out) | Est. cost | Duration | Findings |",
       "| --- | --- | --- | --- | --- |",
