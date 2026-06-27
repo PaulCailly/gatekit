@@ -21,6 +21,7 @@
         { "src": "_lib/src/lib/recorder.ts",      "dest": "{sentinel}/src/lib/recorder.ts",      "type": "managed" },
         { "src": "_lib/src/lib/release-core.ts",  "dest": "{sentinel}/src/lib/release-core.ts",  "type": "managed" },
         { "src": "_lib/src/lib/repo.ts",          "dest": "{sentinel}/src/lib/repo.ts",          "type": "managed" },
+        { "src": "_lib/src/lib/review-fixes.ts", "dest": "{sentinel}/src/lib/review-fixes.ts", "type": "managed" },
         { "src": "_lib/src/lib/types.ts",         "dest": "{sentinel}/src/lib/types.ts",         "type": "managed" },
         { "src": "_lib/package.json",             "dest": "{sentinel}/package.json",             "type": "managed" },
         { "src": "_lib/tsconfig.json",            "dest": "{sentinel}/tsconfig.json",            "type": "managed" }
