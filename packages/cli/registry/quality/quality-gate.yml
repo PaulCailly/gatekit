@@ -1,8 +1,15 @@
 # registry/quality/quality-gate.yml
-# Code-health gate — deterministic, dependency-free. Scores src/ and posts a
-# sticky "Code Quality" PR comment.  This gate is informational by design and
-# never blocks: the health engine (index.mjs) always exits 0 regardless of
-# score.  There is no block mode for quality.
+# Code-health gate. Scores your TypeScript source and posts a sticky "Code
+# Quality" PR comment.  This gate is informational by design and never blocks:
+# the health engine (index.mjs) always exits 0 regardless of score.  There is
+# no block mode for quality.
+#
+# Dependency note: the health analyzer parses TypeScript via the `typescript`
+# compiler API (analyze.mjs `import ts from 'typescript'`), so `typescript`
+# must be resolvable from the repo root. The "Provide TypeScript" step below
+# installs it defensively (safe whether or not your repo has a package.json /
+# already depends on typescript). Edit the `src` scan path below to your
+# source root (e.g. `packages/cli/src`) — this is a per-repo customization.
 name: Quality gate
 on:
   pull_request:
@@ -17,6 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Provide TypeScript for the health analyzer
+        run: npm i --no-save --no-audit --no-fund typescript@^5
       - name: Code-health metrics
         run: node scripts/health/index.mjs src --json .health/health.json | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Install report deps
