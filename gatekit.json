@@ -1,0 +1,147 @@
+{
+  "$schema": "https://paulcailly.github.io/gatekit/schema.json",
+  "version": "0.3.0",
+  "packageManager": "npm",
+  "paths": {
+    "scripts": "scripts",
+    "sentinel": ".github/sentinel"
+  },
+  "features": {
+    "quality": {
+      "enabled": false,
+      "mode": "report"
+    },
+    "compliance": {
+      "enabled": false,
+      "mode": "report"
+    },
+    "review": {
+      "enabled": true,
+      "mode": "report"
+    },
+    "debate": {
+      "enabled": false,
+      "mode": "report"
+    },
+    "qa": {
+      "enabled": false,
+      "mode": "report"
+    },
+    "release-notes": {
+      "enabled": false,
+      "mode": "report"
+    }
+  },
+  "installed": {
+    ".github/sentinel/src/lib/benchmark.ts": {
+      "sha": "c594848526ac96355cb7e38d8210e367f53876aec3661bd1f8927d75b48b9ca0",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/browser.ts": {
+      "sha": "c75ff1523f6e1db35e2b58136035c998b06acd4cc1b8a944702e8e2c25209e2a",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/debate-core.ts": {
+      "sha": "00811840eea1fe888da8ec8c7479783281b61b0225f44d2219096160d2e36043",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/debate-format.ts": {
+      "sha": "9b1379cc970d1e8be3ae91881a051cf894cb848b1e5dd1b450fb9648190ad5f7",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/diff.ts": {
+      "sha": "72c9ca84e44bf34e2a9c7f45d8ba80d3bc195115fa4173a0edcaa7c28c1e09be",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/gemini.ts": {
+      "sha": "2e4139d3f2930cdd9ca657e42a62cd4f23c3b0b9d416d7ec98dea6445384cfe5",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/gh.ts": {
+      "sha": "553a4f0e94481043be591248e652af47787f06bc5af6dbdd155f1b35d7186ca6",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/markdown.ts": {
+      "sha": "263af99816ff8500de3b8e23b9b8bf60337fe537374898497c95f65aba91e76f",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/metrics.ts": {
+      "sha": "099a9ef39c2dcfa6f2a244d4fa3ea55f5a2a636fe5c2cee240f26c75827814f0",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/openrouter.ts": {
+      "sha": "6c608b155fdf0b25c9010a3660891f10d34ab0e8cd89a033aac4dfceadac6e03",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/qa-auth.ts": {
+      "sha": "dc5bb7cf775cfe8369cfc590f676cf87e26e287d06777845a826e70da85fcd89",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/qa-core.ts": {
+      "sha": "39afaa62e183db86684cc15cc40451e0f5bfbe2e995e74b964eee47242a85cb8",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/qa-memory.ts": {
+      "sha": "0aca4fb62f083bfc1e1e06ca7760369321b7e4d3441fd721fb390a903102da3f",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/reactions.ts": {
+      "sha": "9cfc72d679e94c8633c478883f55acdebb1d5b9e7de3e834cfa8bb37ca07613e",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/recorder.ts": {
+      "sha": "7a59c9f5552ace7e1969e603fd08e138cc84b0dd5dbd181776893f027dfc6332",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/release-core.ts": {
+      "sha": "f902ff538726c5bb0cd2d0ffc75f591c9b4d8d3c493409c617806ede52cd8321",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/repo.ts": {
+      "sha": "cf7e5f31aee9a35e5aa0a218dbb1cd89e12381b51282b95463dcb872ff5882e2",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/lib/types.ts": {
+      "sha": "04bb8277d39848687ac91c06450133e2edcd902e757c2a6dc4a9a7e27e96ae15",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/package.json": {
+      "sha": "19161eae590835f8c07f460af2c67bf0034b0bf485c1613c67e496c0f08637d0",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/tsconfig.json": {
+      "sha": "cd1ebe21f981e564faa5a701a8b5c0c6dc1e57af15e47135c985aea3af4268d4",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/sentinel/src/review.ts": {
+      "sha": "33680aba66868af2d2b4d29a9f0b020039064eb834d3157642372574130519a4",
+      "type": "managed",
+      "version": "0.3.0"
+    },
+    ".github/workflows/code-review.yml": {
+      "sha": "08778e465fcd6aecf6ed3323efa9d36382f1d710cac1a9a3bba3c605b8a67f0d",
+      "type": "managed",
+      "version": "0.3.0"
+    }
+  }
+}

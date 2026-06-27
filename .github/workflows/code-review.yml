@@ -1,0 +1,76 @@
+# Code review — OpenRouter-powered, opt-in, multi-model pull request review.
+#
+# Opt-in: this does NOT run automatically. Comment "/review" on a pull request
+# to trigger a review, so small PRs don't burn tokens unless you ask.
+#
+# Model selection (all routed through OpenRouter):
+#   /review            → Claude Opus 4.8 (the default — strongest review)
+#   /review glm        → GLM 5.2 (cheap, quick pass)
+#   /review gpt        → GPT-5.5
+#   /review glm gpt    → both, run concurrently, each posts its own review,
+#                        then the priciest model writes a cross-analysis summary
+#   /review all        → every registered model
+#
+# Setup: add an OPENROUTER_API_KEY repository secret.
+#
+# Because it runs on the `issue_comment` event (from the base repo), secrets are
+# available even for PRs from forks — a maintainer just comments "/review".
+
+name: Code review
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  # Required to react to the triggering /review comment (an issue comment): the
+  # reactions endpoint is /repos/{o}/{r}/issues/comments/{id}/reactions.
+  issues: write
+
+jobs:
+  review:
+    # Only run for a "/review" comment on a pull request (not on plain issues).
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') }}
+    # Concurrency lives on the JOB, not the workflow, on purpose. GitHub resolves
+    # workflow-level concurrency BEFORE the job `if`, so any comment on the PR —
+    # even a non-"/review" one — would join the group and cancel a review that's
+    # mid-run. Scoping it to the job means only real "/review" runs are grouped.
+    # The group is keyed by COMMENT id (not just PR) with cancel-in-progress off,
+    # so concurrent reviews are allowed: `/review gpt` then `/review opus` on the
+    # same PR run side by side instead of the second cancelling the first. The
+    # per-comment group still collapses a single comment's duplicate deliveries.
+    concurrency:
+      group: code-review-pr-${{ github.event.issue.number }}-${{ github.event.comment.id }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      # The reviewer code runs from the BASE branch (trusted) — it must not be
+      # PR-authored code, since it executes with the OPENROUTER_API_KEY secret.
+      - uses: actions/checkout@v4
+
+      # The PR's source, checked out read-only into a subdir purely so the
+      # static-analysis step can scan it. The analyzer only parses these files
+      # (via the TS compiler API — it never executes them), so this is safe for
+      # fork PRs too.
+      - name: Check out PR head (source only)
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          path: pr-head
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install review dependencies
+        working-directory: .github/sentinel
+        run: npm ci --no-audit --no-fund
+
+      - name: Review pull request
+        working-directory: .github/sentinel
+        run: npm run review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}

@@ -15,7 +15,6 @@ import {
 import { trackTriggerReaction } from "./lib/reactions.js";
 import { fileTree, guidelineDocs, listDir, readFile } from "./lib/repo.js";
 import type { Finding, ReviewResult, Severity, Usage } from "./lib/types.js";
-import { renderFixApproaches } from "./lib/review-fixes.js";
 
 const FIX_ALL_INTRO =
   "Verify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.";
@@ -56,22 +55,6 @@ const REVIEW_SCHEMA = {
           title: { type: "string" },
           description: { type: "string" },
           impact: { type: "string" },
-          fixes: {
-            type: "array",
-            minItems: 3,
-            maxItems: 3,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                title: { type: "string" },
-                description: { type: "string" },
-                snippet: { type: "string" },
-                prompt: { type: "string" },
-              },
-              required: ["title", "description", "snippet", "prompt"],
-            },
-          },
         },
         required: ["path", "line", "severity", "confidence", "category", "title", "description", "impact"],
       },
@@ -131,8 +114,7 @@ Also produce a "walkthrough": a Mermaid sequenceDiagram (body only, starting wit
 For each finding:
 - "line" must be a line number that exists in the NEW version of the changed file (a line the diff adds or keeps). Use null for a whole-file or cross-file observation.
 - Give a confidence (0-100) and severity ("error" likely-breaking bug/security, "warning" probable issue, "info" minor/style/architecture nit).
-- Report every issue you find, including lower-confidence ones, each tagged with confidence and severity. Coverage matters more than precision. An empty findings array is a valid result for a clean change.
-- For EACH finding, propose exactly 3 distinct fix approaches in the "fixes" array. Each approach must have: a short "title" (1-2 words, e.g. "Stream", "Cache", "Block"), a one-line "description" of what this approach does, a minimal "snippet" showing the concrete code change (no fences), and a "prompt" an AI agent can copy-paste to apply that specific approach in the codebase. The 3 approaches must be genuinely different strategies — not 3 phrasings of the same fix.`;
+- Report every issue you find, including lower-confidence ones, each tagged with confidence and severity. Coverage matters more than precision. An empty findings array is a valid result for a clean change.`;
 
 /** Matches any Sentinel finding marker, capturing the model key and content hash. */
 const SENTINEL_RE = /<!-- sentinel:([a-z0-9-]+):(\w+) -->/i;
@@ -151,19 +133,15 @@ function markerFor(f: Finding, key: string): string {
 }
 
 function formatBody(f: Finding, key: string): string {
-  const fixBlock = renderFixApproaches(f.fixes ?? []);
-  const parts = [
+  return [
     `${SEVERITY_EMOJI[f.severity]} **${f.title}** · \`${f.category}\` · confidence ${f.confidence}%`,
     "",
     f.description,
     "",
     `**Impact:** ${f.impact}`,
-  ];
-  if (fixBlock) {
-    parts.push("", fixBlock);
-  }
-  parts.push("", markerFor(f, key));
-  return parts.join("\n");
+    "",
+    markerFor(f, key),
+  ].join("\n");
 }
 
 interface ReviewComment {
@@ -255,15 +233,6 @@ function normalizeResult(raw: unknown): ReviewResult {
     const lineNum = typeof f.line === "number" && Number.isFinite(f.line) ? Math.trunc(f.line) : null;
     const conf = typeof f.confidence === "number" && Number.isFinite(f.confidence) ? Math.trunc(f.confidence) : 50;
     if (!f.path || !f.title) continue;
-    const rawFixes = Array.isArray(f.fixes) ? f.fixes : [];
-    const fixes = rawFixes
-      .filter((fx): fx is Record<string, unknown> => fx !== null && typeof fx === "object")
-      .map((fx) => ({
-        title: String(fx.title ?? ""),
-        description: String(fx.description ?? ""),
-        snippet: String(fx.snippet ?? ""),
-        prompt: String(fx.prompt ?? ""),
-      }));
     findings.push({
       path: String(f.path),
       line: lineNum,
@@ -273,7 +242,6 @@ function normalizeResult(raw: unknown): ReviewResult {
       title: String(f.title),
       description: String(f.description ?? ""),
       impact: String(f.impact ?? ""),
-      ...(fixes.length > 0 ? { fixes } : {}),
     });
   }
   return {
