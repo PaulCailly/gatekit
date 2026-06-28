@@ -10,9 +10,10 @@
 # Fix: run `npm run qa:gen-map` inside `.github/sentinel` and commit the
 # updated `src/lib/qa-map.generated.json`.
 #
-# The owned overlay (`qa-map.overlay.ts`) is NOT checked here — it is
-# validated at runtime by `mergeQaMap()`'s drift-throw, which fires on
-# every QA run and will surface any stale overlay entries immediately.
+# Skipped for `routing: "opus-infer"` — that map has no deterministic
+# source (it is Opus-generated via `qa:gen-bible` / manually seeded), so a
+# byte-exact regeneration check does not apply. The owned overlay is
+# validated at runtime by `mergeQaMap()`'s drift-throw on every QA run.
 #
 # Setup: no secrets required.
 
@@ -32,19 +33,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Detect routing strategy
+        id: routing
+        run: |
+          r=$(node -e "try{process.stdout.write(((require('./gatekit.json').qa)||{}).routing||'')}catch(e){}")
+          echo "routing=$r" >> "$GITHUB_OUTPUT"
+          echo "QA routing: ${r:-<none>}"
+
+      - name: opus-infer — freshness check N/A
+        if: steps.routing.outputs.routing == 'opus-infer'
+        run: echo "routing=opus-infer → map is Opus-maintained (qa:gen-bible); no deterministic freshness check. Overlay drift is caught at runtime by mergeQaMap()."
+
       - uses: actions/setup-node@v4
+        if: steps.routing.outputs.routing != 'opus-infer'
         with:
           node-version: 22
 
       - name: Install sentinel dependencies
+        if: steps.routing.outputs.routing != 'opus-infer'
         working-directory: .github/sentinel
         run: npm ci --no-audit --no-fund
 
       - name: Regenerate route map (deterministic, no LLM)
+        if: steps.routing.outputs.routing != 'opus-infer'
         working-directory: .github/sentinel
         run: npm run qa:gen-map
 
       - name: Check qa-map.generated.json is up to date
+        if: steps.routing.outputs.routing != 'opus-infer'
         run: |
           if ! git diff --exit-status -- '*qa-map.generated.json'; then
             echo ""
