@@ -131,6 +131,14 @@ export function generateMap(): GeneratedMap {
 }
 
 function main(): void {
+  // opus-infer maps are maintained by gen-bible (Opus) / manual seed, not by a
+  // deterministic scan. Leave the file BYTE-untouched so the freshness gate
+  // (git diff) can never trip on a re-serialization difference.
+  const cfg = loadGatekitQaConfig();
+  if (cfg?.routing === "opus-infer" && existsSync(OUT)) {
+    console.log(`opus-infer: preserving existing ${path.relative(SENTINEL_DIR, OUT)} (maintained by gen-bible)`);
+    return;
+  }
   const map = generateMap();
   writeFileSync(OUT, JSON.stringify(map, null, 2) + "\n", "utf8");
   console.log(
