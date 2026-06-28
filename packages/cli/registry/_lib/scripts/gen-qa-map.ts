@@ -114,7 +114,7 @@ export function generateMap(): GeneratedMap {
     const module = section === "modules" ? segs[1] ?? null : null;
     seen.set(route, { path: route, section, module });
   }
-  const routes = [...seen.values()].sort((a, b) => a.path.localeCompare(b.path, "en"));
+  const routes = [...seen.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 
   const locales = existsSync(LOCALES_DIR)
     ? readdirSync(LOCALES_DIR, { withFileTypes: true })

@@ -103,7 +103,7 @@ function extractNextPages(rootDir: string, cfg: QaConfig): GeneratedRoute[] {
     seen.set(routePath, { path: routePath, section, module });
   }
 
-  return [...seen.values()].sort((a, b) => a.path.localeCompare(b.path, "en"));
+  return [...seen.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 function extractNextApp(rootDir: string, cfg: QaConfig): GeneratedRoute[] {
@@ -129,7 +129,7 @@ function extractNextApp(rootDir: string, cfg: QaConfig): GeneratedRoute[] {
     seen.set(routePath, { path: routePath, section, module });
   }
 
-  return [...seen.values()].sort((a, b) => a.path.localeCompare(b.path, "en"));
+  return [...seen.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 /**
@@ -164,7 +164,7 @@ function extractGlob(rootDir: string, cfg: QaConfig): GeneratedRoute[] {
     routes.push({ path: routePath, section, module });
   }
 
-  return routes.sort((a, b) => a.path.localeCompare(b.path, "en"));
+  return routes.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 /** Default pattern matches `path: "..."` / `path: '...'` route literals. */
@@ -191,7 +191,7 @@ function extractCodeRouter(rootDir: string, cfg: QaConfig): GeneratedRoute[] {
       seen.set(routePath, { path: routePath, section, module });
     }
   }
-  return [...seen.values()].sort((a, b) => a.path.localeCompare(b.path, "en"));
+  return [...seen.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 // ── public API ────────────────────────────────────────────────────────────────
