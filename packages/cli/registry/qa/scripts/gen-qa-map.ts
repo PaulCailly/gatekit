@@ -13,7 +13,7 @@ import path from "node:path";
 // The dev/test copy used by qa-map.test.ts lives at _lib/scripts/gen-qa-map.ts with
 // a dev-layout import path.  Keep the two import paths in sync with their respective
 // layouts; see finding #5 of the qa-bible /review for rationale.
-import { extractRoutes, type QaConfig } from "../src/lib/route-extract.js";
+import { extractRoutes, type QaConfig, type GeneratedFile } from "../src/lib/route-extract.js";
 
 const SENTINEL_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -96,6 +96,13 @@ export function generateMap(): GeneratedMap {
   const qaConfig = loadGatekitQaConfig();
 
   if (qaConfig) {
+    // opus-infer has no deterministic source — its routes come from the Opus
+    // generator (gen-bible) or a manual seed. Preserve the existing map so a
+    // re-run is idempotent (the freshness check must not see drift-to-empty).
+    if (qaConfig.routing === "opus-infer" && existsSync(OUT)) {
+      const existing = JSON.parse(readFileSync(OUT, "utf8")) as GeneratedFile;
+      return { generatedAt: null, locales: existing.locales ?? [], routes: existing.routes ?? [] };
+    }
     const generated = extractRoutes(REPO_ROOT, qaConfig);
     return { generatedAt: null, locales: generated.locales, routes: generated.routes };
   }
