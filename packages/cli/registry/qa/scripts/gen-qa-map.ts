@@ -135,8 +135,12 @@ function main(): void {
   // deterministic scan. Leave the file BYTE-untouched so the freshness gate
   // (git diff) can never trip on a re-serialization difference.
   const cfg = loadGatekitQaConfig();
-  if (cfg?.routing === "opus-infer" && existsSync(OUT)) {
-    console.log(`opus-infer: preserving existing ${path.relative(SENTINEL_DIR, OUT)} (maintained by gen-bible)`);
+  if (cfg && (cfg.routing === "opus-infer" || cfg.routing === "auto") && existsSync(OUT)) {
+    const why =
+      cfg.routing === "auto"
+        ? "routing=auto not yet resolved — run qa:gen-bible first"
+        : "opus-infer: Opus-maintained map";
+    console.log(`${why} — preserving ${path.relative(SENTINEL_DIR, OUT)}`);
     return;
   }
   const map = generateMap();

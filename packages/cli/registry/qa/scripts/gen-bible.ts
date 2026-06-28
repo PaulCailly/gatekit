@@ -21,6 +21,8 @@ import path from "node:path";
 // shared libs are at {sentinel}/src/lib/ — so all imports use ../src/lib/.
 import { generateBible } from "../src/lib/bible-gen.js";
 import { getClient } from "../src/lib/openrouter.js";
+import { detectStack, resolveAuto } from "../src/lib/stack-detect.js";
+import { mergeQaConfig } from "../src/lib/qa-config-persist.js";
 import { extractRoutes, type QaConfig, type GeneratedFile } from "../src/lib/route-extract.js";
 import type { QaOverlay } from "../src/lib/qa-map.js";
 
@@ -92,20 +94,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Load the committed generated file.
-  let generatedFile: GeneratedFile;
-  if (existsSync(GENERATED_PATH)) {
-    generatedFile = JSON.parse(readFileSync(GENERATED_PATH, "utf8")) as GeneratedFile;
-  } else {
-    // Regenerate on-the-fly if the JSON is missing.
-    generatedFile = extractRoutes(repoRoot, cfg);
-  }
-
-  if (generatedFile.routes.length === 0) {
-    console.warn("[gen-bible] Warning: no routes found. Run `npm run qa:gen-map` first or check routing config.");
-  }
-
-  // Build the real OpenRouter completer.
+  // Build the real OpenRouter completer (also used by stack analysis below).
   const client = getClient();
   const modelSlug = modelOverride ?? cfg.bibleModel ?? "anthropic/claude-opus-4";
 
@@ -124,6 +113,34 @@ async function main(): Promise<void> {
     if (!text) throw new Error("[gen-bible] Model returned empty response");
     return text;
   };
+
+  // routing: "auto" — one-time stack analysis that resolves itself into a
+  // concrete strategy, persisting the result to gatekit.json + the resolved
+  // routes to generated.json. Subsequent qa:gen-map runs are then deterministic.
+  if (cfg.routing === "auto") {
+    console.log("[gen-bible] routing=auto — running stack analysis…");
+    const detection = await detectStack(repoRoot, { complete });
+    const { routes, persist } = resolveAuto(repoRoot, detection, {});
+    console.log(`[gen-bible] detected ${detection.framework} → routing=${persist.routing} (${routes.length} routes)`);
+    writeFileSync(GENERATED_PATH, JSON.stringify({ generatedAt: null, locales: [], routes }, null, 2) + "\n", "utf8");
+    const gkPath = path.join(repoRoot, "gatekit.json");
+    const gk = JSON.parse(readFileSync(gkPath, "utf8")) as Record<string, unknown>;
+    writeFileSync(gkPath, JSON.stringify(mergeQaConfig(gk, persist), null, 2) + "\n", "utf8");
+    cfg.routing = persist.routing; // continue this run with the resolved routing
+  }
+
+  // Load the committed generated file.
+  let generatedFile: GeneratedFile;
+  if (existsSync(GENERATED_PATH)) {
+    generatedFile = JSON.parse(readFileSync(GENERATED_PATH, "utf8")) as GeneratedFile;
+  } else {
+    // Regenerate on-the-fly if the JSON is missing.
+    generatedFile = extractRoutes(repoRoot, cfg);
+  }
+
+  if (generatedFile.routes.length === 0) {
+    console.warn("[gen-bible] Warning: no routes found. Run `npm run qa:gen-map` first or check routing config.");
+  }
 
   console.log(`[gen-bible] Calling ${modelSlug} via OpenRouter…`);
 

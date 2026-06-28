@@ -1,5 +1,5 @@
 {
-  "version": "0.5.6",
+  "version": "0.6.0",
   "items": {
     "_lib": {
       "description": "shared sentinel lib",
@@ -102,6 +102,16 @@
         {
           "src": "_lib/package-lock.json",
           "dest": "{sentinel}/package-lock.json",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/stack-detect.ts",
+          "dest": "{sentinel}/src/lib/stack-detect.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/qa-config-persist.ts",
+          "dest": "{sentinel}/src/lib/qa-config-persist.ts",
           "type": "managed"
         },
         {
