@@ -1,5 +1,5 @@
 {
-  "version": "0.6.5",
+  "version": "0.6.6",
   "items": {
     "_lib": {
       "description": "shared sentinel lib",
@@ -112,6 +112,11 @@
         {
           "src": "_lib/src/lib/qa-config-persist.ts",
           "dest": "{sentinel}/src/lib/qa-config-persist.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/qa-seed.ts",
+          "dest": "{sentinel}/src/lib/qa-seed.ts",
           "type": "managed"
         },
         {
@@ -325,6 +330,11 @@
         {
           "src": "qa/QA-MEMORY.md",
           "dest": "{sentinel}/QA-MEMORY.md",
+          "type": "owned"
+        },
+        {
+          "src": "qa/qa-seed.ts",
+          "dest": "{sentinel}/src/qa-seed.ts",
           "type": "owned"
         }
       ],

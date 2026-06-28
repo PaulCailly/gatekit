@@ -317,7 +317,7 @@ test("bare /qa still has a null focus", () => {
 });
 
 test("focus budget is configured", () => {
-  assert.equal(QA_CONFIG.budgets.focus, 60);
+  assert.equal(QA_CONFIG.budgets.focus, 120);
 });
 
 test("buildReport surfaces the agent's wrap-up summary in a details block when present", () => {

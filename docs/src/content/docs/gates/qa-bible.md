@@ -164,6 +164,47 @@ Review the draft, adjust domain boundaries, add missing preconditions, trim the 
 
 ---
 
+## Pre-seeding test data
+
+When your bible's preconditions assume data that must exist (a user session, a completed task, a roster entry), the QA agent cannot reach those routes unless the app is populated first. The **pre-seed hook** lets each shard populate the preview app **once per run**, before exploration begins.
+
+### Owned `qa-seed.ts` contract
+
+Scaffold a one-time `src/qa-seed.ts` in your sentinel:
+
+```ts
+import type { SeedFn } from "./lib/qa-seed.js";
+
+export const seed: SeedFn = async (page, ctx) => {
+  // page is already authenticated and on the preview.
+  // Populate your app (e.g., via page.evaluate + IndexedDB, or drive the UI).
+  // Example:
+  //   await page.evaluate(() => { /* write to app's IndexedDB */ });
+  //   await page.reload();
+  return { notes: ["A completed session exists — open it from /log/past"] };
+};
+```
+
+The `page` is a Playwright `Page` already logged in at the preview URL. The `ctx` contains `baseUrl`, `mode`, `focus` target, and `routes` in scope. Return `notes` — human-readable hints the agent will read in its steering. These notes replace hardcoded preconditions and tell the agent exactly how to navigate to data-dependent routes via the UI (the agent cannot type URLs directly).
+
+### Enable in `gatekit.json`
+
+```json
+{
+  "qa": {
+    "seed": true
+  }
+}
+```
+
+### Execution and resilience
+
+- Runs **once per shard**, immediately after sign-in and before the exploration loop starts.
+- If the seed throws, the failure is logged and the run proceeds unseeded — the agent still works, just without the pre-populated data.
+- **Gemini safety-policy blocks** (a 400 when the model's action triggers a content filter) are now **skipped, not fatal**. The agent is notified the action was blocked and automatically tries a different approach. The shard continues normally.
+
+---
+
 ## `/qa all` — divide-and-conquer sweep
 
 When a bible is present, `/qa all` fans out into a **parallel matrix** of focused agents — one per domain — via GitHub Actions:
