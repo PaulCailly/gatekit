@@ -120,9 +120,9 @@ async function main(): Promise<void> {
   if (cfg.routing === "auto") {
     console.log("[gen-bible] routing=auto — running stack analysis…");
     const detection = await detectStack(repoRoot, { complete });
-    const { routes, persist } = resolveAuto(repoRoot, detection, {});
+    const { routes, locales, persist } = resolveAuto(repoRoot, detection, {});
     console.log(`[gen-bible] detected ${detection.framework} → routing=${persist.routing} (${routes.length} routes)`);
-    writeFileSync(GENERATED_PATH, JSON.stringify({ generatedAt: null, locales: [], routes }, null, 2) + "\n", "utf8");
+    writeFileSync(GENERATED_PATH, JSON.stringify({ generatedAt: null, locales, routes }, null, 2) + "\n", "utf8");
     const gkPath = path.join(repoRoot, "gatekit.json");
     const gk = JSON.parse(readFileSync(gkPath, "utf8")) as Record<string, unknown>;
     writeFileSync(gkPath, JSON.stringify(mergeQaConfig(gk, persist), null, 2) + "\n", "utf8");

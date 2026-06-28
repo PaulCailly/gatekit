@@ -11,8 +11,11 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { extractRoutes, type QaConfig } from "./route-extract.js";
+import { extractRoutes, type QaConfig, type GeneratedFile } from "./route-extract.js";
 import type { GeneratedRoute } from "./qa-map.js";
+
+/** Deterministic strategies the detector may emit (NOT `llm`/`auto`). */
+const KNOWN_STRATEGIES = ["next-pages", "next-app", "glob", "code-router"];
 
 const ROUTER_GLOBS = [
   "src/router.tsx", "src/router.ts", "src/presentation/app/router.tsx",
@@ -105,11 +108,26 @@ export function parseDetection(raw: string): Detection {
   } catch (err) {
     throw new Error(`parseDetection: invalid JSON — ${(err as Error).message}`);
   }
-  const strategy = (p.strategy ?? null) as QaConfig | null;
+  let strategy = (p.strategy ?? null) as QaConfig | null;
   const routes = (p.routes ?? null) as GeneratedRoute[] | null;
-  if (!strategy && !routes) throw new Error("parseDetection: both strategy and routes are null");
-  if (strategy && typeof strategy.routing !== "string") {
-    throw new Error("parseDetection: strategy missing 'routing'");
+  if (strategy) {
+    if (typeof strategy.routing !== "string") {
+      throw new Error("parseDetection: strategy missing 'routing'");
+    }
+    // An unknown routing would throw deep in extractRoutes; discard it here so
+    // resolveAuto falls back to the LLM routes instead of crashing.
+    if (!KNOWN_STRATEGIES.includes(strategy.routing)) strategy = null;
+  }
+  if (routes != null) {
+    if (!Array.isArray(routes)) throw new Error("parseDetection: 'routes' is not an array");
+    for (const r of routes) {
+      if (!r || typeof r.path !== "string") {
+        throw new Error("parseDetection: each route needs a string 'path'");
+      }
+    }
+  }
+  if (!strategy && !(routes && routes.length)) {
+    throw new Error("parseDetection: no usable strategy or routes");
   }
   return {
     framework: String(p.framework ?? "unknown"),
@@ -123,18 +141,26 @@ export function parseDetection(raw: string): Detection {
 export function resolveAuto(
   root: string,
   detection: Detection,
-  opts: { runStrategy?: (r: string, c: QaConfig) => GeneratedRoute[] },
-): { routes: GeneratedRoute[]; persist: QaConfig } {
-  const run = opts.runStrategy ?? ((r, c) => extractRoutes(r, c).routes);
+  opts: { runStrategy?: (r: string, c: QaConfig) => GeneratedFile },
+): { routes: GeneratedRoute[]; locales: string[]; persist: QaConfig } {
+  const run = opts.runStrategy ?? ((r, c) => extractRoutes(r, c));
   if (detection.strategy) {
-    const routes = run(root, detection.strategy);
-    if (routes.length > 0) return { routes, persist: detection.strategy };
+    let gen: GeneratedFile | null = null;
+    try {
+      gen = run(root, detection.strategy); // defensive: a bad strategy must not crash the bootstrap
+    } catch {
+      gen = null;
+    }
+    if (gen && gen.routes.length > 0) {
+      return { routes: gen.routes, locales: gen.locales, persist: detection.strategy };
+    }
   }
   const fallback = detection.routes ?? [];
   if (fallback.length === 0) {
     throw new Error("resolveAuto: detection produced no routes (strategy empty and no LLM routes)");
   }
-  return { routes: fallback, persist: { ...detection.strategy, routing: "llm" } as QaConfig };
+  // Fallback persists a clean `llm` config — no stale strategy keys carried over.
+  return { routes: fallback, locales: [], persist: { routing: "llm" } };
 }
 
 export async function detectStack(

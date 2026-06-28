@@ -96,3 +96,32 @@ test("detectStack: gather → prompt → stubbed complete → parse", async () =
   const d = await detectStack(root, { complete });
   assert.equal(d.strategy?.routing, "next-app");
 });
+
+test("parseDetection discards an unknown strategy routing (falls through to routes)", () => {
+  const d = parseDetection(JSON.stringify({
+    framework: "x", strategy: { routing: "react-router-future" },
+    routes: [{ path: "/y", section: "y", module: null }], confidence: 0.5, notes: "",
+  }));
+  assert.equal(d.strategy, null);
+  assert.equal(d.routes?.length, 1);
+});
+
+test("parseDetection rejects routes whose entries lack a string path", () => {
+  assert.throws(() => parseDetection(JSON.stringify({
+    framework: "x", strategy: null, routes: [{ section: "y" }], confidence: 1, notes: "",
+  })));
+});
+
+test("resolveAuto falls back (clean llm persist) when the strategy run throws", () => {
+  const detection = {
+    framework: "x",
+    strategy: { routing: "code-router", routerFiles: ["x"] } as any,
+    routes: [{ path: "/z", section: "z", module: null }],
+    confidence: 0.3, notes: "",
+  };
+  const r = resolveAuto("/tmp", detection as any, { runStrategy: () => { throw new Error("boom"); } });
+  assert.deepEqual(r.routes.map((x) => x.path), ["/z"]);
+  assert.equal(r.persist.routing, "llm");
+  assert.equal((r.persist as any).routerFiles, undefined); // no stale strategy keys
+  assert.ok(Array.isArray(r.locales));
+});
