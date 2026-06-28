@@ -19,6 +19,7 @@
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
 
@@ -225,8 +226,14 @@ async function loadOwnedSeed(): Promise<SeedFn | null> {
   try {
     const mod = (await import("./qa-seed.js")) as { seed?: SeedFn };
     return typeof mod.seed === "function" ? mod.seed : null;
-  } catch {
-    return null; // no owned seed present
+  } catch (err) {
+    // Module simply absent → fine (no owned seed). Any OTHER error means the owned
+    // seed exists but is broken (syntax/import) — surface it instead of silently
+    // running unseeded.
+    if ((err as { code?: string })?.code !== "ERR_MODULE_NOT_FOUND") {
+      core.warning(`Owned qa-seed.ts failed to load — running unseeded: ${(err as Error).message}`);
+    }
+    return null;
   }
 }
 
@@ -421,7 +428,9 @@ async function explore(
     let seedNotes: string[] = [];
     {
       let qaSeedEnabled = false;
-      let dir = process.cwd();
+      // Walk up from THIS file's location (not process.cwd(), which varies with the
+      // workflow's working-directory) to find the consumer's gatekit.json.
+      let dir = path.dirname(fileURLToPath(import.meta.url));
       while (true) {
         if (existsSync(path.join(dir, "gatekit.json"))) {
           try {
@@ -560,13 +569,11 @@ async function explore(
         } catch (err) {
           if (isSafetyBlock(err)) {
             core.info(`Turn ${turn}: action blocked by a Gemini safety policy — skipping it and continuing.`);
-            // Feed the block back as a function result so the agent picks a different path.
-            const safetyNote: InteractionInput = { type: "text", text: "That action was blocked by a safety policy. Do not retry it; explore a different part of the app." };
-            next = await continueInteraction(
-              interaction.id,
-              [...(withState as InteractionInput[]), safetyNote],
-              [REPORT_FINDING_TOOL],
-            );
+            // Retry with ONLY a steering note — NOT `withState`, which still carries
+            // the safety-flagged action result that caused the 400 and would just
+            // re-block. This drops the blocked turn's results and moves the agent on.
+            const safetyNote: InteractionInput = { type: "text", text: "Your last action was blocked by a safety policy. Do not retry it; explore a different part of the app." };
+            next = await continueInteraction(interaction.id, [safetyNote], [REPORT_FINDING_TOOL]);
           } else {
             throw err;
           }

@@ -41,5 +41,5 @@ export async function runSeed(
 export function seedNotesBlock(notes: string[]): string {
   if (notes.length === 0) return "";
   const lines = notes.map((n) => `- ${n}`).join("\n");
-  return `\n\nPre-seeded state — this data already exists; reach it via the UI (do not type URLs):\n${lines}`;
+  return `\n\nPre-seeded state — this data already exists. Navigate to it by clicking through the app; any /path mentioned below is the SCREEN to reach by clicking, never a URL to type:\n${lines}`;
 }
