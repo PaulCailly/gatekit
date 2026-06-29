@@ -128,6 +128,26 @@
           "src": "_lib/tsconfig.json",
           "dest": "{sentinel}/tsconfig.json",
           "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/qa-map.ts",
+          "dest": "{sentinel}/src/lib/qa-map.ts",
+          "type": "managed"
+        },
+        {
+          "src": "_lib/src/lib/route-extract.ts",
+          "dest": "{sentinel}/src/lib/route-extract.ts",
+          "type": "managed"
+        },
+        {
+          "src": "qa/qa-map.overlay.ts",
+          "dest": "{sentinel}/src/lib/qa-map.overlay.ts",
+          "type": "owned"
+        },
+        {
+          "src": "qa/qa-map.generated.json",
+          "dest": "{sentinel}/src/lib/qa-map.generated.json",
+          "type": "owned"
         }
       ]
     },
@@ -298,34 +318,14 @@
           "type": "managed"
         },
         {
-          "src": "_lib/src/lib/qa-map.ts",
-          "dest": "{sentinel}/src/lib/qa-map.ts",
-          "type": "managed"
-        },
-        {
           "src": "_lib/src/lib/qa-shard.ts",
           "dest": "{sentinel}/src/lib/qa-shard.ts",
-          "type": "managed"
-        },
-        {
-          "src": "_lib/src/lib/route-extract.ts",
-          "dest": "{sentinel}/src/lib/route-extract.ts",
           "type": "managed"
         },
         {
           "src": "_lib/src/lib/bible-gen.ts",
           "dest": "{sentinel}/src/lib/bible-gen.ts",
           "type": "managed"
-        },
-        {
-          "src": "qa/qa-map.overlay.ts",
-          "dest": "{sentinel}/src/lib/qa-map.overlay.ts",
-          "type": "owned"
-        },
-        {
-          "src": "qa/qa-map.generated.json",
-          "dest": "{sentinel}/src/lib/qa-map.generated.json",
-          "type": "owned"
         },
         {
           "src": "qa/QA-MEMORY.md",
