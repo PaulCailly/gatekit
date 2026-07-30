@@ -10,7 +10,7 @@ description: gatekit CLI commands, gatekit.json schema, and managed/owned update
 Initialises gatekit in the current directory. Creates a `gatekit.json` manifest and detects your package manager.
 
 ```bash
-npx gatekit init
+npx @paulcailly/gatekit init
 ```
 
 Prompts you to confirm the detected package manager (`npm`, `pnpm`, or `yarn`) and writes the initial manifest.
@@ -22,8 +22,8 @@ Prompts you to confirm the detected package manager (`npm`, `pnpm`, or `yarn`) a
 Vendors one or more features into the repo.
 
 ```bash
-npx gatekit add quality
-npx gatekit add quality compliance review
+npx @paulcailly/gatekit add quality
+npx @paulcailly/gatekit add quality compliance review
 ```
 
 For each feature:
@@ -39,10 +39,10 @@ Pulls the latest managed files from the registry. Owned files are never touched.
 
 ```bash
 # Update all installed features
-npx gatekit update
+npx @paulcailly/gatekit update
 
 # Update a specific feature
-npx gatekit update quality
+npx @paulcailly/gatekit update quality
 ```
 
 For each managed file:
@@ -56,8 +56,8 @@ For each managed file:
 Shows a diff between the installed managed files and the current registry versions. Owned files are excluded.
 
 ```bash
-npx gatekit diff
-npx gatekit diff quality
+npx @paulcailly/gatekit diff
+npx @paulcailly/gatekit diff quality
 ```
 
 Prints a unified diff to stdout. Exit code 1 if any managed file is out of date (useful in CI).
@@ -69,7 +69,7 @@ Prints a unified diff to stdout. Exit code 1 if any managed file is out of date 
 Lists all installed features and their status.
 
 ```bash
-npx gatekit list
+npx @paulcailly/gatekit list
 ```
 
 Output includes: feature name, enabled/disabled status, mode (`report` or `block`), and the number of managed/owned files.
@@ -81,7 +81,7 @@ Output includes: feature name, enabled/disabled status, mode (`report` or `block
 Removes a feature from the repo. Deletes managed files and removes the feature entry from `gatekit.json`. Owned files (your policy) are **not** deleted — they remain in the repo.
 
 ```bash
-npx gatekit remove quality
+npx @paulcailly/gatekit remove quality
 ```
 
 ---
@@ -147,4 +147,4 @@ managed file, locally edited  →  new version placed as <file>.harness-new
 owned file                    →  never touched (not even read by `update`)
 ```
 
-After an update that produced `.harness-new` files, run `npx gatekit diff` to see what changed upstream. Then manually merge the upstream changes from `<file>.harness-new` into your edited file and delete the `.harness-new` file. Finally, update the `sha` for that file in `gatekit.json` to match the new on-disk content — once the recorded SHA matches the file on disk, `update` will treat it as unmodified and overwrite cleanly on the next run.
+After an update that produced `.harness-new` files, run `npx @paulcailly/gatekit diff` to see what changed upstream. Then manually merge the upstream changes from `<file>.harness-new` into your edited file and delete the `.harness-new` file. Finally, update the `sha` for that file in `gatekit.json` to match the new on-disk content — once the recorded SHA matches the file on disk, `update` will treat it as unmodified and overwrite cleanly on the next run.

@@ -2,12 +2,9 @@ name: Release
 on:
   push:
     tags: ['v*']
-# NOTE: Before the first publish:
-#   (a) The unscoped name "gatekit" is taken on npmjs.com — publish under a scope like
-#       "@<your-npm-username>/gatekit" in packages/cli/package.json first.
-#   (b) Configure a Trusted Publisher once on npmjs.com:
-#       Package Settings → Trusted Publisher → GitHub → repo PaulCailly/gatekit,
-#       workflow "release.yml". No NPM_TOKEN secret needed after that.
+# NOTE: Publishes @paulcailly/gatekit via npm Trusted Publishing (OIDC).
+#   One-time setup on npmjs.com: Package Settings → Trusted Publisher → GitHub →
+#   repo PaulCailly/gatekit, workflow "release.yml". No NPM_TOKEN secret needed.
 permissions:
   contents: write
   id-token: write   # required for npm OIDC Trusted Publishing

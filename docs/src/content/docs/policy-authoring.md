@@ -5,12 +5,12 @@ description: How to fill in compliance/config.mjs and controls.mjs — egress al
 
 ## Overview
 
-When you run `npx gatekit add compliance`, two **owned** files are scaffolded into your repo:
+When you run `npx @paulcailly/gatekit add compliance`, two **owned** files are scaffolded into your repo:
 
 - `compliance/config.mjs` — runtime policy: what egress is allowed, which env vars are server-only, what counts as a secret, where analytics may live
 - `compliance/controls.mjs` — documentation: your privacy controls, standards covered, and sub-processors
 
-Because these files are **owned**, `npx gatekit update` will never touch them. Your policy stays in version control alongside your code, under your team's ownership.
+Because these files are **owned**, `npx @paulcailly/gatekit update` will never touch them. Your policy stays in version control alongside your code, under your team's ownership.
 
 ---
 

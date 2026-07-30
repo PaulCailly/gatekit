@@ -37,13 +37,13 @@ This means you get upstream engine improvements with a single command while keep
 
 ```bash
 # 1. Initialise the manifest in your repo
-npx gatekit init
+npx @paulcailly/gatekit init
 
 # 2. Add the gates you want
-npx gatekit add quality compliance
+npx @paulcailly/gatekit add quality compliance
 
 # 3. Check what's installed
-npx gatekit list
+npx @paulcailly/gatekit list
 ```
 
 After `init`, a `gatekit.json` manifest is created at your repo root. After `add`, the managed engine files are vendored into `.github/` and `scripts/`, and the owned policy stubs are scaffolded — ready for you to fill in.

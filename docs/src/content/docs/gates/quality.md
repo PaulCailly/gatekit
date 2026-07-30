@@ -80,7 +80,7 @@ Example report structure:
 ## Install
 
 ```bash
-npx gatekit add quality
+npx @paulcailly/gatekit add quality
 ```
 
 No secrets required — the gate uses only the `GITHUB_TOKEN` automatically provided by GitHub Actions.

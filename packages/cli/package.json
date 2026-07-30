@@ -1,5 +1,5 @@
 {
-  "name": "gatekit",
+  "name": "@paulcailly/gatekit",
   "version": "0.0.0",
   "type": "module",
   "bin": { "gatekit": "dist/index.js" },

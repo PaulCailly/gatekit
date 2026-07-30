@@ -10,13 +10,13 @@ gatekit vendors versioned quality (code-health) and compliance (privacy/egress/s
 
 ```bash
 # Initialise the manifest
-npx gatekit init
+npx @paulcailly/gatekit init
 
 # Add quality and compliance gates
-npx gatekit add quality compliance
+npx @paulcailly/gatekit add quality compliance
 
 # Re-sync managed engines any time (owned policy is untouched)
-npx gatekit update
+npx @paulcailly/gatekit update
 ```
 
 ## What you get

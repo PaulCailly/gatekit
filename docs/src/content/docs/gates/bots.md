@@ -26,7 +26,7 @@ OPENROUTER_API_KEY
 **Install:**
 
 ```bash
-npx gatekit add review
+npx @paulcailly/gatekit add review
 ```
 
 ### Ways to fix this
@@ -61,7 +61,7 @@ OPENROUTER_API_KEY
 **Install:**
 
 ```bash
-npx gatekit add debate
+npx @paulcailly/gatekit add debate
 ```
 
 ---
@@ -90,7 +90,7 @@ BLOB_STORE_ID
 **Install:**
 
 ```bash
-npx gatekit add qa
+npx @paulcailly/gatekit add qa
 ```
 
 ---
@@ -112,7 +112,7 @@ OPENROUTER_API_KEY
 **Install:**
 
 ```bash
-npx gatekit add release-notes
+npx @paulcailly/gatekit add release-notes
 ```
 
 ---

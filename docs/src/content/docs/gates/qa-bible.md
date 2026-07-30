@@ -226,7 +226,7 @@ The QA engine (workflows, browser driver, report format) is **managed** — `gat
 ## Install
 
 ```bash
-npx gatekit add qa
+npx @paulcailly/gatekit add qa
 ```
 
 **Required secrets:**
