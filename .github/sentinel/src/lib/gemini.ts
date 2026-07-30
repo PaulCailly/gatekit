@@ -158,3 +158,15 @@ export function finalText(interaction: Interaction): string {
   }
   return out.join(" ").trim();
 }
+
+/** True when an error is a Gemini safety-policy block on a flagged action — a 400
+ *  whose message indicates the input was blocked under a safety policy. Such a
+ *  block must skip the action and continue, not crash the shard. Kept narrow so
+ *  genuine errors (auth, 500s, network) still surface. */
+export function isSafetyBlock(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  const msg = String((err as { message?: string })?.message ?? err ?? "");
+  const is400 = status === 400 || /\bstatus:?\s*400\b/i.test(msg);
+  const blocked = /input blocked|safety pol(icy|icies)|sensitive data management|blocked by .*safety/i.test(msg);
+  return is400 && blocked;
+}

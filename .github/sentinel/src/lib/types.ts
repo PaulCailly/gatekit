@@ -1,5 +1,16 @@
 export type Severity = "error" | "warning" | "info";
 
+export interface FixApproach {
+  /** Short approach name, e.g. "Stream", "Cache", "Block". */
+  title: string;
+  /** One-line description of what this approach does. */
+  description: string;
+  /** A small code snippet illustrating the fix (no fences). */
+  snippet: string;
+  /** A copy-pasteable prompt instructing an AI agent to apply THIS approach. */
+  prompt: string;
+}
+
 export interface Finding {
   /** Path of the changed file the finding applies to. */
   path: string;
@@ -14,6 +25,8 @@ export interface Finding {
   description: string;
   /** What goes wrong if this ships. */
   impact: string;
+  /** Exactly 3 distinct fix approaches; may be empty/absent for older model output. */
+  fixes?: FixApproach[];
 }
 
 export interface ReviewResult {

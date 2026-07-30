@@ -1,6 +1,6 @@
 {
   "$schema": "https://paulcailly.github.io/gatekit/schema.json",
-  "version": "0.3.0",
+  "version": "0.6.7",
   "packageManager": "npm",
   "paths": {
     "scripts": "scripts",
@@ -39,9 +39,9 @@
       "version": "0.3.0"
     },
     ".github/sentinel/src/lib/browser.ts": {
-      "sha": "c75ff1523f6e1db35e2b58136035c998b06acd4cc1b8a944702e8e2c25209e2a",
+      "sha": "8526ad4b72f74d6d2177e29579521b86553bb419e013e91e60981a12411324ec",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/sentinel/src/lib/debate-core.ts": {
       "sha": "00811840eea1fe888da8ec8c7479783281b61b0225f44d2219096160d2e36043",
@@ -59,9 +59,9 @@
       "version": "0.3.0"
     },
     ".github/sentinel/src/lib/gemini.ts": {
-      "sha": "2e4139d3f2930cdd9ca657e42a62cd4f23c3b0b9d416d7ec98dea6445384cfe5",
+      "sha": "7005542f1ed4e7593b3cb565913ff76c61f111d39c0294726662aa4f5f269dc3",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/sentinel/src/lib/gh.ts": {
       "sha": "553a4f0e94481043be591248e652af47787f06bc5af6dbdd155f1b35d7186ca6",
@@ -89,14 +89,14 @@
       "version": "0.3.0"
     },
     ".github/sentinel/src/lib/qa-core.ts": {
-      "sha": "39afaa62e183db86684cc15cc40451e0f5bfbe2e995e74b964eee47242a85cb8",
+      "sha": "54685b5fee4781959602bfaa4552700224e3ffcfba2fa2158cf994c7cee42ca2",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/sentinel/src/lib/qa-memory.ts": {
-      "sha": "0aca4fb62f083bfc1e1e06ca7760369321b7e4d3441fd721fb390a903102da3f",
+      "sha": "fd9871eab46b8d382ced9d82308183576eff422ac0587618dc3bc6b41cf0bfa2",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/sentinel/src/lib/reactions.ts": {
       "sha": "9cfc72d679e94c8633c478883f55acdebb1d5b9e7de3e834cfa8bb37ca07613e",
@@ -104,9 +104,9 @@
       "version": "0.3.0"
     },
     ".github/sentinel/src/lib/recorder.ts": {
-      "sha": "7a59c9f5552ace7e1969e603fd08e138cc84b0dd5dbd181776893f027dfc6332",
+      "sha": "58dfb3cd61717f75e7f9daa66ec582b09ac59055fd08fab2a9f74bcd105bba27",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/sentinel/src/lib/release-core.ts": {
       "sha": "f902ff538726c5bb0cd2d0ffc75f591c9b4d8d3c493409c617806ede52cd8321",
@@ -119,14 +119,14 @@
       "version": "0.3.0"
     },
     ".github/sentinel/src/lib/types.ts": {
-      "sha": "04bb8277d39848687ac91c06450133e2edcd902e757c2a6dc4a9a7e27e96ae15",
+      "sha": "fbdac64fa1f0ecb8146c09571f56d95fe3dead5e3550d58867e86281ef8659b2",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/sentinel/package.json": {
-      "sha": "19161eae590835f8c07f460af2c67bf0034b0bf485c1613c67e496c0f08637d0",
+      "sha": "d9f86c7034d6e80b6df31a319bc0ef9d722755ea22e2362eba8933ad6c996349",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/sentinel/tsconfig.json": {
       "sha": "cd1ebe21f981e564faa5a701a8b5c0c6dc1e57af15e47135c985aea3af4268d4",
@@ -134,9 +134,9 @@
       "version": "0.3.0"
     },
     ".github/sentinel/src/review.ts": {
-      "sha": "33680aba66868af2d2b4d29a9f0b020039064eb834d3157642372574130519a4",
+      "sha": "09106b1f819d66313e8c65bb3fc944874058f7178188d138d28982045e171e46",
       "type": "managed",
-      "version": "0.3.0"
+      "version": "0.6.7"
     },
     ".github/workflows/code-review.yml": {
       "sha": "08778e465fcd6aecf6ed3323efa9d36382f1d710cac1a9a3bba3c605b8a67f0d",
